@@ -1,9 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
+import { neon } from '@neondatabase/serverless';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// This safely grabs your Neon connection string from Vercel/Local env
+const sql = neon(process.env.DATABASE_URL!);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Helper object to keep existing Supabase table queries from completely crashing the build
+export const supabase = {
+  from: (table: string) => ({
+    select: async (columns = '*') => {
+      try {
+        const result = await sql(`SELECT ${columns} FROM ${table}`);
+        return { data: result, error: null };
+      } catch (err) {
+        return { data: null, error: err };
+      }
+    }
+  })
+};
+
+export { sql };
 
 // ── Types ──────────────────────────────────────────────────────────────
 
