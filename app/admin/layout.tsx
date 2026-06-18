@@ -1,10 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FileText, Users, Tag, PlusCircle,
-  Building2, LogOut
+  Building2, LogOut, Loader
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -18,6 +19,51 @@ const nav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [authenticated, setAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const isAuth = localStorage.getItem('admin_authenticated') === 'true'
+    const loginTime = localStorage.getItem('admin_login_time')
+    
+    // Check if session is still valid (8 hours)
+    if (isAuth && loginTime) {
+      const elapsed = Date.now() - parseInt(loginTime)
+      if (elapsed < 8 * 60 * 60 * 1000) {
+        setAuthenticated(true)
+      } else {
+        localStorage.removeItem('admin_authenticated')
+        localStorage.removeItem('admin_login_time')
+        router.push('/admin-login')
+      }
+    } else {
+      router.push('/admin-login')
+    }
+    setLoading(false)
+  }, [router])
+
+  function handleLogout() {
+    localStorage.removeItem('admin_authenticated')
+    localStorage.removeItem('admin_login_time')
+    document.cookie = 'admin_session=; path=/admin; max-age=0'
+    router.push('/admin-login')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-50 to-white">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-8 h-8 text-brand-500 animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!authenticated) {
+    return null
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -63,7 +109,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="px-3 py-3 border-t border-gray-100">
-          <button className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 w-full">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 w-full transition-colors"
+          >
             <LogOut size={16} />
             Sign out
           </button>

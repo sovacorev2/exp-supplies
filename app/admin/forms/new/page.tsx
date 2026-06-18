@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createForm, generateSlug, type FormField, type FieldType } from '@/app/actions/forms'
-import { Plus, Trash2, GripVertical, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, GripVertical, ExternalLink, Copy } from 'lucide-react'
 
 const CATEGORIES = [
   'General', 'Tents & Shelter', 'Electronics & AV', 'Food & Catering',
@@ -82,10 +82,17 @@ export default function NewFormPage() {
     }
   }
 
+  function copyLink() {
+    if (published) {
+      const fullUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}${published}`
+      navigator.clipboard.writeText(fullUrl)
+    }
+  }
+
   return (
     <>
-      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0">
-        <h1 className="font-semibold">New form</h1>
+      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0 shadow-sm">
+        <h1 className="font-semibold text-gray-900">Create New Form</h1>
         <button onClick={publish} disabled={saving || !name} className="btn btn-primary text-xs py-1.5 px-4">
           {saving ? 'Publishing…' : 'Publish form'}
         </button>
@@ -93,16 +100,19 @@ export default function NewFormPage() {
 
       <main className="flex-1 overflow-y-auto p-6">
         {published && (
-          <div className="mb-5 flex items-center gap-3 p-4 rounded-xl bg-brand-50 border border-brand-100 text-brand-700">
-            <span className="text-sm font-medium">✓ Form published!</span>
-            <code className="text-xs bg-white px-2 py-1 rounded border border-brand-200">
+          <div className="mb-5 flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-brand-50 to-brand-100 border border-brand-200 text-brand-700 shadow-sm">
+            <span className="text-sm font-semibold flex-1">Form Published Successfully!</span>
+            <code className="text-xs bg-white px-3 py-1.5 rounded border border-brand-200 font-mono">
               {typeof window !== 'undefined' ? window.location.origin : ''}{published}
             </code>
-            <a href={published} target="_blank" className="btn text-xs py-1 px-2 border-brand-200 text-brand-700 hover:bg-brand-100">
+            <button onClick={copyLink} className="btn text-xs py-1 px-2 bg-white border-brand-200 text-brand-600 hover:bg-brand-50">
+              <Copy size={12} /> Copy
+            </button>
+            <a href={published} target="_blank" className="btn text-xs py-1 px-2 bg-brand-500 text-white hover:bg-brand-600">
               <ExternalLink size={12} /> Open
             </a>
-            <button onClick={() => router.push('/admin/forms')} className="ml-auto btn text-xs py-1 px-2">
-              Back to forms
+            <button onClick={() => router.push('/admin/forms')} className="ml-auto btn text-xs py-1 px-2 bg-white border-brand-200">
+              Done
             </button>
           </div>
         )}
@@ -132,23 +142,28 @@ export default function NewFormPage() {
               </div>
               <div className="p-4 space-y-2">
                 {fields.map((f: FormField) => (
-                  <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                    <GripVertical size={15} className="text-gray-300" />
+                  <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 group">
+                    <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {f.label} {f.required && <span className="text-red-400">*</span>}
+                        {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
                       </p>
                       <p className="text-xs text-gray-400">
                         {FIELD_TYPES.find(t => t.value === f.type)?.label}
+                        {f.placeholder && ` • "${f.placeholder}"`}
                       </p>
                     </div>
-                    <button onClick={() => removeField(f.id)} className="text-gray-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={14} />
+                    <button 
+                      onClick={() => removeField(f.id)} 
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                      title="Delete field"
+                    >
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}
                 {fields.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-6">No fields yet — add one →</p>
+                  <p className="text-sm text-gray-400 text-center py-8">No fields yet — add one on the right →</p>
                 )}
               </div>
             </div>
