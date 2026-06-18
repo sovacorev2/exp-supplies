@@ -1,7 +1,7 @@
 import { getForms, getSubmissions } from '@/lib/supabase'
 import Link from 'next/link'
 import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
-import FormActions from './admin/forms/FormActions'
+import FormActions from './forms/FormActions'
 
 export const revalidate = 0
 
