@@ -1,4 +1,4 @@
-import { getSubmissions, getForms } from '@/lib/supabase'
+import { getSubmissions, getForms } from '@/app/actions/forms'
 import SuppliersClient from './SuppliersClient'
 
 export const revalidate = 0
@@ -6,8 +6,9 @@ export const revalidate = 0
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: { category?: string; status?: string; form?: string }
+  searchParams: Promise<{ category?: string; status?: string; form?: string }>
 }) {
+  const params = await searchParams
   const [submissions, forms] = await Promise.all([
     getSubmissions(),
     getForms(),
@@ -17,9 +18,9 @@ export default async function SuppliersPage({
     <SuppliersClient
       submissions={submissions}
       forms={forms}
-      defaultCategory={searchParams.category}
-      defaultStatus={searchParams.status}
-      defaultFormId={searchParams.form}
+      defaultCategory={params.category}
+      defaultStatus={params.status}
+      defaultFormId={params.form}
     />
   )
 }
