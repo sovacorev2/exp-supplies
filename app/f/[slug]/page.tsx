@@ -10,9 +10,10 @@ export default async function PublicFormPage({ params }: { params: { slug: strin
     notFound()
   }
 
+  if (!form) notFound()
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header bar */}
       <div className="bg-brand-600 text-white px-6 py-5">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-xl font-semibold">{form.name}</h1>
@@ -21,7 +22,6 @@ export default async function PublicFormPage({ params }: { params: { slug: strin
           )}
         </div>
       </div>
-
       <div className="max-w-2xl mx-auto px-4 py-8">
         <SupplierForm form={form} />
       </div>

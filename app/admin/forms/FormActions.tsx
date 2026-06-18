@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Copy, Check, Pause, Play } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export default function FormActions({
@@ -19,15 +18,18 @@ export default function FormActions({
   const router = useRouter()
 
   async function copyLink() {
-    const full = `${window.location.origin}${formUrl}`
-    await navigator.clipboard.writeText(full)
+    await navigator.clipboard.writeText(`${window.location.origin}${formUrl}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function toggleActive() {
+  async function handleToggle() {
     setLoading(true)
-    await supabase.from('forms').update({ is_active: !isActive }).eq('id', formId)
+    await fetch(`/api/forms/${formId}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !isActive }),
+    })
     setLoading(false)
     router.refresh()
   }
@@ -42,7 +44,7 @@ export default function FormActions({
         {copied ? <Check size={13} className="text-brand-600" /> : <Copy size={13} />}
       </button>
       <button
-        onClick={toggleActive}
+        onClick={handleToggle}
         disabled={loading}
         className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-amber-600 transition-colors"
         title={isActive ? 'Pause form' : 'Resume form'}

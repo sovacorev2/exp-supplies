@@ -1,126 +1,80 @@
-import { getDashboardStats, getSubmissions, getForms } from '@/lib/supabase'
+import { getForms, getSubmissions } from '@/lib/supabase'
 import Link from 'next/link'
-import { FileText, Users, Clock, CheckCircle, ExternalLink } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
+import FormActions from './FormActions'
 
 export const revalidate = 0
 
-export default async function AdminDashboard() {
-  const [stats, recentSubs, forms] = await Promise.all([
-    getDashboardStats(),
-    getSubmissions(),
+export default async function FormsPage() {
+  const [forms, submissions] = await Promise.all([
     getForms(),
+    getSubmissions(),
   ])
 
-  const recent = recentSubs.slice(0, 6)
+  const countMap: Record<string, number> = {}
+  submissions.forEach(s => { countMap[s.form_id] = (countMap[s.form_id] || 0) + 1 })
 
   return (
     <>
       <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0">
-        <h1 className="font-semibold text-gray-900">Dashboard</h1>
+        <h1 className="font-semibold">Forms</h1>
         <Link href="/admin/forms/new" className="btn btn-primary text-xs py-1.5 px-3">
-          + New form
+          <PlusCircle size={14} /> New form
         </Link>
       </header>
 
       <main className="flex-1 overflow-y-auto p-6">
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Total submissions', value: stats.totalSubmissions, icon: Users, color: 'text-blue-600' },
-            { label: 'Pending review',    value: stats.pending,          icon: Clock, color: 'text-amber-600' },
-            { label: 'Approved',          value: stats.approved,         icon: CheckCircle, color: 'text-brand-600' },
-            { label: 'Active forms',      value: stats.activeForms,      icon: FileText, color: 'text-purple-600' },
-          ].map(s => (
-            <div key={s.label} className="card px-5 py-4">
-              <div className="flex items-center gap-2 mb-2">
-                <s.icon size={15} className={s.color} />
-                <span className="text-xs text-gray-500">{s.label}</span>
-              </div>
-              <div className="text-2xl font-semibold">{s.value}</div>
-            </div>
-          ))}
-        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {forms.map(form => {
+            const formUrl = `/f/${form.slug}`
+            const count = countMap[form.id] || 0
 
-        <div className="grid grid-cols-5 gap-5">
-          {/* Recent submissions */}
-          <div className="card col-span-3">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-medium text-sm">Recent submissions</h2>
-              <Link href="/admin/suppliers" className="text-xs text-brand-600 hover:underline">View all</Link>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="text-left px-5 py-2.5 text-xs text-gray-500 font-medium">Company</th>
-                  <th className="text-left px-3 py-2.5 text-xs text-gray-500 font-medium">Form</th>
-                  <th className="text-left px-3 py-2.5 text-xs text-gray-500 font-medium">Status</th>
-                  <th className="text-left px-3 py-2.5 text-xs text-gray-500 font-medium">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map(sub => (
-                  <tr key={sub.id} className="border-t border-gray-50 hover:bg-gray-50">
-                    <td className="px-5 py-3 font-medium text-sm">
-                      {(sub.data['Company name'] || sub.data['company_name'] || 'Unknown')}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-gray-500">{sub.forms?.name}</td>
-                    <td className="px-3 py-3">
-                      <span className={`badge badge-${sub.status}`}>{sub.status}</span>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-gray-400">
-                      {formatDistanceToNow(new Date(sub.created_at), { addSuffix: true })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Active forms */}
-          <div className="card col-span-2">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-medium text-sm">Active forms</h2>
-              <Link href="/admin/forms" className="text-xs text-brand-600 hover:underline">Manage</Link>
-            </div>
-            <div className="p-4 space-y-2">
-              {forms.filter(f => f.is_active).map(form => (
-                <div key={form.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-50">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{form.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{form.category}</p>
+            return (
+              <div key={form.id} className="card p-5">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h2 className="font-medium text-sm">{form.name}</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {form.category} · {form.fields.length} fields · {count} responses
+                    </p>
                   </div>
-                  <a
-                    href={`/f/${form.slug}`}
-                    target="_blank"
-                    className="flex-shrink-0 text-gray-400 hover:text-brand-600"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
+                  <span className={`badge flex-shrink-0 ${form.is_active ? 'badge-approved' : 'badge-rejected'}`}>
+                    {form.is_active ? 'Live' : 'Paused'}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Category breakdown */}
-        {Object.keys(stats.categoryCounts).length > 0 && (
-          <div className="card mt-5 p-5">
-            <h2 className="font-medium text-sm mb-4">Submissions by category</h2>
-            <div className="flex flex-wrap gap-3">
-              {Object.entries(stats.categoryCounts).map(([cat, count]) => (
-                <Link
-                  key={cat}
-                  href={`/admin/suppliers?category=${encodeURIComponent(cat)}`}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-brand-50 hover:text-brand-700 transition-colors"
-                >
-                  <span className="text-sm font-medium">{cat}</span>
-                  <span className="text-xs bg-white rounded-full px-2 py-0.5 text-gray-500 border border-gray-200">{count}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+                {form.description && (
+                  <p className="text-xs text-gray-500 mb-3 line-clamp-2">{form.description}</p>
+                )}
+
+                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 mb-3">
+                  <code className="text-xs text-blue-600 flex-1 truncate">{formUrl}</code>
+                  <FormActions formId={form.id} formUrl={formUrl} isActive={form.is_active} />
+                </div>
+
+                <div className="flex gap-2">
+                  <a href={formUrl} target="_blank" className="btn text-xs py-1.5 px-3">
+                    <ExternalLink size={13} /> Preview
+                  </a>
+                  <Link href={`/admin/suppliers?form=${form.id}`} className="btn text-xs py-1.5 px-3">
+                    <Copy size={13} /> {count} responses
+                  </Link>
+                  <Link href={`/admin/forms/${form.id}/edit`} className="btn text-xs py-1.5 px-3 ml-auto">
+                    <Pencil size={13} /> Edit
+                  </Link>
+                </div>
+              </div>
+            )
+          })}
+
+          <Link
+            href="/admin/forms/new"
+            className="card p-5 border-dashed flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-600 transition-colors min-h-[160px]"
+          >
+            <PlusCircle size={28} />
+            <span className="text-sm">Create new form</span>
+          </Link>
+        </div>
       </main>
     </>
   )

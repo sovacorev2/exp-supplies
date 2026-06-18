@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createForm, generateSlug, FormField, FieldType } from '@/lib/supabase'
 import { Plus, Trash2, GripVertical, ExternalLink } from 'lucide-react'
-import clsx from 'clsx'
 
 const CATEGORIES = [
   'General', 'Tents & Shelter', 'Electronics & AV', 'Food & Catering',
@@ -23,40 +22,41 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
 ]
 
 const DEFAULT_FIELDS: FormField[] = [
-  { id: 'df1', label: 'Company name',    type: 'text',  required: true,  placeholder: 'e.g. Acme Supplies Ltd' },
-  { id: 'df2', label: 'Contact person',  type: 'text',  required: true,  placeholder: 'Full name' },
-  { id: 'df3', label: 'Email address',   type: 'email', required: true,  placeholder: 'you@company.com' },
-  { id: 'df4', label: 'Phone number',    type: 'tel',   required: true,  placeholder: '+254 7XX XXX XXX' },
-  { id: 'df5', label: 'County / location', type: 'text', required: true, placeholder: 'e.g. Nairobi' },
+  { id: 'df1', label: 'Company name',     type: 'text',  required: true,  placeholder: 'e.g. Acme Supplies Ltd' },
+  { id: 'df2', label: 'Contact person',   type: 'text',  required: true,  placeholder: 'Full name' },
+  { id: 'df3', label: 'Email address',    type: 'email', required: true,  placeholder: 'you@company.com' },
+  { id: 'df4', label: 'Phone number',     type: 'tel',   required: true,  placeholder: '+254 7XX XXX XXX' },
+  { id: 'df5', label: 'County / location',type: 'text',  required: true,  placeholder: 'e.g. Nairobi' },
 ]
 
 function uid() { return Math.random().toString(36).slice(2, 8) }
 
 export default function NewFormPage() {
   const router = useRouter()
-  const [name, setName] = useState('')
+  const [name, setName]               = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('General')
-  const [fields, setFields] = useState<FormField[]>(DEFAULT_FIELDS)
-  const [saving, setSaving] = useState(false)
-  const [published, setPublished] = useState('')
+  const [category, setCategory]       = useState('General')
+  const [fields, setFields]           = useState<FormField[]>(DEFAULT_FIELDS)
+  const [saving, setSaving]           = useState(false)
+  const [published, setPublished]     = useState('')
 
-  // new field state
-  const [newLabel, setNewLabel]     = useState('')
-  const [newType, setNewType]       = useState<FieldType>('text')
-  const [newRequired, setNewRequired] = useState(true)
+  const [newLabel, setNewLabel]           = useState('')
+  const [newType, setNewType]             = useState<FieldType>('text')
+  const [newRequired, setNewRequired]     = useState(true)
   const [newPlaceholder, setNewPlaceholder] = useState('')
-  const [newOptions, setNewOptions] = useState('')
+  const [newOptions, setNewOptions]       = useState('')
 
   function addField() {
     if (!newLabel.trim()) return
     const field: FormField = {
-      id: uid(),
-      label: newLabel.trim(),
-      type: newType,
-      required: newRequired,
+      id:          uid(),
+      label:       newLabel.trim(),
+      type:        newType,
+      required:    newRequired,
       placeholder: newPlaceholder || undefined,
-      options: newType === 'select' ? newOptions.split('\n').map(s => s.trim()).filter(Boolean) : undefined,
+      options:     newType === 'select'
+                     ? newOptions.split('\n').map(s => s.trim()).filter(Boolean)
+                     : undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
@@ -75,8 +75,8 @@ export default function NewFormPage() {
       const slug = generateSlug(name)
       const form = await createForm({ name, description, category, fields, is_active: true, slug })
       setPublished(`/f/${form.slug}`)
-    } catch (e) {
-      alert('Error publishing form. Check your Supabase connection.')
+    } catch {
+      alert('Error publishing form. Check your DATABASE_URL environment variable.')
     } finally {
       setSaving(false)
     }
@@ -95,7 +95,9 @@ export default function NewFormPage() {
         {published && (
           <div className="mb-5 flex items-center gap-3 p-4 rounded-xl bg-brand-50 border border-brand-100 text-brand-700">
             <span className="text-sm font-medium">✓ Form published!</span>
-            <code className="text-xs bg-white px-2 py-1 rounded border border-brand-200">{window.location.origin}{published}</code>
+            <code className="text-xs bg-white px-2 py-1 rounded border border-brand-200">
+              {typeof window !== 'undefined' ? window.location.origin : ''}{published}
+            </code>
             <a href={published} target="_blank" className="btn text-xs py-1 px-2 border-brand-200 text-brand-700 hover:bg-brand-100">
               <ExternalLink size={12} /> Open
             </a>
@@ -106,7 +108,6 @@ export default function NewFormPage() {
         )}
 
         <div className="grid grid-cols-5 gap-5 items-start">
-          {/* Left — form meta + field list */}
           <div className="col-span-3 space-y-4">
             <div className="card p-5 space-y-4">
               <div>
@@ -130,12 +131,16 @@ export default function NewFormPage() {
                 <h2 className="font-medium text-sm">Form fields ({fields.length})</h2>
               </div>
               <div className="p-4 space-y-2">
-                {fields.map((f, i) => (
+                {fields.map((f: FormField) => (
                   <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
                     <GripVertical size={15} className="text-gray-300" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{f.label} {f.required && <span className="text-red-400">*</span>}</p>
-                      <p className="text-xs text-gray-400">{FIELD_TYPES.find(t => t.value === f.type)?.label}</p>
+                      <p className="text-sm font-medium truncate">
+                        {f.label} {f.required && <span className="text-red-400">*</span>}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {FIELD_TYPES.find(t => t.value === f.type)?.label}
+                      </p>
                     </div>
                     <button onClick={() => removeField(f.id)} className="text-gray-300 hover:text-red-500 transition-colors">
                       <Trash2 size={14} />
@@ -149,7 +154,6 @@ export default function NewFormPage() {
             </div>
           </div>
 
-          {/* Right — add field panel */}
           <div className="col-span-2 card p-5 space-y-4 sticky top-0">
             <h2 className="font-medium text-sm">Add a field</h2>
             <div>
