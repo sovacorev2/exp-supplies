@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Submission, Form } from '@/lib/supabase'
+import { type Submission, type Form } from '@/app/actions/forms'
 import { Search, X, Download, Check, Ban, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import clsx from 'clsx'

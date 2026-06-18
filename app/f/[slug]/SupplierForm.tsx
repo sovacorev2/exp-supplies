@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Form, createSubmission } from '@/lib/supabase'
+import { createSubmission, type Form } from '@/app/actions/forms'
 import { CheckCircle, Loader2 } from 'lucide-react'
 
 export default function SupplierForm({ form }: { form: Form }) {

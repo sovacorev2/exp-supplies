@@ -1,4 +1,4 @@
-import { getSubmissions, getForms, Form, Submission } from '@/lib/supabase'
+import { getSubmissions, getForms, type Form, type Submission } from '@/app/actions/forms'
 import Link from 'next/link'
 
 export const revalidate = 0

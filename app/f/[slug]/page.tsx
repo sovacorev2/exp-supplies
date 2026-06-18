@@ -1,11 +1,12 @@
-import { getFormBySlug } from '@/lib/supabase'
+import { getFormBySlug } from '@/app/actions/forms'
 import { notFound } from 'next/navigation'
 import SupplierForm from './SupplierForm'
 
-export default async function PublicFormPage({ params }: { params: { slug: string } }) {
+export default async function PublicFormPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   let form
   try {
-    form = await getFormBySlug(params.slug)
+    form = await getFormBySlug(slug)
   } catch {
     notFound()
   }

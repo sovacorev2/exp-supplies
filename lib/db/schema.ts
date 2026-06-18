@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // --- Better Auth required tables -------------------------------------------
 // Column names are camelCase to match Better Auth's defaults. Do not rename.
@@ -53,27 +54,28 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updatedAt').defaultNow(),
 })
 
-// --- App tables ------------------------------------------------------------
-// Add your app tables below. Always include a plain `userId` column so queries
-// can be scoped per user — the security model depends on this column existing,
-// not on a foreign key. Do NOT add a foreign key constraint
-// (`.references(() => user.id, ...)`) unless the user explicitly asks for
-// foreign keys or referential integrity; FK constraints make iterating on the
-// schema harder.
-//
-// Example:
-//
-// import { serial } from "drizzle-orm/pg-core"
-//
-// export const todos = pgTable("todos", {
-//   id: serial("id").primaryKey(),
-//   userId: text("userId").notNull(),
-//   title: text("title").notNull(),
-//   completed: boolean("completed").notNull().default(false),
-//   createdAt: timestamp("createdAt").notNull().defaultNow(),
-// })
-//
-// If the user asks for foreign keys, add the reference back in:
-//   userId: text("userId")
-//     .notNull()
-//     .references(() => user.id, { onDelete: "cascade" }),
+// --- App tables ---
+
+export const forms = pgTable('forms', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: text('category').notNull(),
+  fields: jsonb('fields').notNull().default([]),
+  is_active: boolean('is_active').notNull().default(true),
+  slug: text('slug').notNull().unique(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const submissions = pgTable('submissions', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  data: jsonb('data').notNull().default({}),
+  status: text('status').notNull().default('pending'),
+  notes: text('notes'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
+})

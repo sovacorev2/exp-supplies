@@ -1,4 +1,4 @@
-import { getForms, getSubmissions } from '@/lib/supabase'
+import { getForms, getSubmissions } from '@/app/actions/forms'
 import Link from 'next/link'
 import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
 import FormActions from './FormActions'
