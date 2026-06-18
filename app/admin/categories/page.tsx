@@ -23,7 +23,7 @@ export default async function CategoriesPage() {
 
   const catMap: Record<string, { total: number; pending: number; approved: number; forms: string[] }> = {}
   
-  submissions.forEach(s => {
+  submissions.forEach((s: any) => {
     const cat = s.forms?.category || 'Unknown'
     if (!catMap[cat]) catMap[cat] = { total: 0, pending: 0, approved: 0, forms: [] }
     catMap[cat].total++
