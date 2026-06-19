@@ -6,7 +6,7 @@ export const revalidate = 0
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; status?: string; form?: string }>
+  searchParams: Promise<{ form?: string }>
 }) {
   const params = await searchParams
   const [submissions, forms] = await Promise.all([
@@ -18,8 +18,6 @@ export default async function SuppliersPage({
     <SuppliersClient
       submissions={submissions}
       forms={forms}
-      defaultCategory={params.category}
-      defaultStatus={params.status}
       defaultFormId={params.form}
     />
   )
