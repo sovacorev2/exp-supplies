@@ -18,8 +18,8 @@ export default async function FormsPage() {
     <>
       <header className="bg-gradient-to-r from-brand-50 to-brand-100 border-b border-brand-200 px-6 h-16 flex items-center justify-between flex-shrink-0 shadow-sm">
         <div>
-          <h1 className="font-bold text-lg text-gray-900">Supplier Forms</h1>
-          <p className="text-xs text-gray-600 mt-0.5">Manage and publish forms for suppliers</p>
+          <h1 className="font-bold text-lg text-gray-900">Exp Forms</h1>
+          <p className="text-xs text-gray-600 mt-0.5">Create flexible forms to collect supplier data - manage all responses in one place</p>
         </div>
         <Link href="/admin/forms/new" className="btn btn-primary text-xs py-2 px-4 font-semibold shadow-md hover:shadow-lg">
           <PlusCircle size={15} /> Create New Form

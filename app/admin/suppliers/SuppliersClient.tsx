@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
-import { Search, X, Download, Check, Ban, Trash2 } from 'lucide-react'
+import { Search, X, Download, Check, Ban, Trash2, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import clsx from 'clsx'
 
@@ -27,6 +27,15 @@ export default function SuppliersClient({
   const [formId, setFormId]     = useState(defaultFormId ?? '')
   const [selected, setSelected] = useState<Submission | null>(null)
   const [acting, setActing]     = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Auto-refresh every 10 seconds for real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [router])
 
   const categories = useMemo<string[]>(() => {
     const cats = new Set(
@@ -88,11 +97,27 @@ export default function SuppliersClient({
 
   return (
     <>
-      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0">
-        <h1 className="font-semibold">Suppliers</h1>
-        <button onClick={exportCSV} className="btn text-xs py-1.5 px-3">
-          <Download size={13} /> Export CSV
-        </button>
+      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <h1 className="font-semibold text-gray-900">Responses</h1>
+          <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-semibold">{filtered.length} total</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              setRefreshing(true)
+              router.refresh()
+              setTimeout(() => setRefreshing(false), 500)
+            }} 
+            className="btn text-xs py-1.5 px-3"
+            disabled={refreshing}
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <button onClick={exportCSV} className="btn text-xs py-1.5 px-3">
+            <Download size={13} /> Export CSV
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
