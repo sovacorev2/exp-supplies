@@ -14,16 +14,16 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
   if (!form) notFound()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-brand-600 text-white px-6 py-5">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-brand-600 dark:bg-brand-700 text-white px-4 md:px-6 py-4 md:py-5">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-xl font-semibold">{form.name}</h1>
+          <h1 className="text-lg md:text-xl font-semibold">{form.name}</h1>
           {form.description && (
-            <p className="text-brand-100 text-sm mt-1">{form.description}</p>
+            <p className="text-brand-100 text-xs md:text-sm mt-1">{form.description}</p>
           )}
         </div>
       </div>
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8">
         <SupplierForm form={form} />
       </div>
     </div>
