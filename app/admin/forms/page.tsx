@@ -50,7 +50,7 @@ export default async function FormsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-6">
             {forms.map(form => {
               const formUrl = `/f/${form.slug}`
               const count = countMap[form.id] || 0
