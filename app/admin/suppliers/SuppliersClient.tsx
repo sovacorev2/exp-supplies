@@ -19,8 +19,6 @@ export default function SuppliersClient({
   const [search, setSearch]     = useState('')
   const [formId, setFormId]     = useState(defaultFormId ?? '')
   const [refreshing, setRefreshing] = useState(false)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo]     = useState('')
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -35,14 +33,9 @@ export default function SuppliersClient({
       const text        = Object.values(s.data).join(' ').toLowerCase()
       const matchSearch = !search || text.includes(search.toLowerCase())
       const matchForm   = !formId || s.form_id === formId
-      
-      const submittedDate = new Date(s.created_at).toDateString()
-      const matchDateFrom = !dateFrom || new Date(s.created_at) >= new Date(dateFrom)
-      const matchDateTo   = !dateTo || new Date(s.created_at) <= new Date(dateTo + 'T23:59:59')
-      
-      return matchSearch && matchForm && matchDateFrom && matchDateTo
+      return matchSearch && matchForm
     })
-  }, [submissions, search, formId, dateFrom, dateTo])
+  }, [submissions, search, formId])
 
 
 
@@ -95,52 +88,23 @@ export default function SuppliersClient({
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Filters */}
-          <div className="bg-white border-b border-gray-100 px-5 py-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-xs">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  className="input pl-8 h-8 text-xs"
-                  placeholder="Search responses…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <select className="input h-8 text-xs" value={formId} onChange={e => setFormId(e.target.value)}>
-                <option value="">All forms</option>
-                {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
-              <span className="text-xs text-gray-500 font-medium">
-                {filtered.length} response{filtered.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-medium text-gray-600">From:</label>
+          <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                type="date"
-                className="input h-8 text-xs"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
+                className="input pl-8 h-9 text-sm"
+                placeholder="Search by company name, email, phone…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
               />
-              <label className="text-xs font-medium text-gray-600">To:</label>
-              <input
-                type="date"
-                className="input h-8 text-xs"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-              />
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => {
-                    setDateFrom('')
-                    setDateTo('')
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700 ml-auto font-medium"
-                >
-                  Clear dates
-                </button>
-              )}
             </div>
+            <select className="input h-9 text-sm" value={formId} onChange={e => setFormId(e.target.value)}>
+              <option value="">All forms</option>
+              {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+            <span className="text-sm text-gray-500 font-medium">
+              {filtered.length} response{filtered.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
           {/* Table */}
@@ -173,8 +137,11 @@ export default function SuppliersClient({
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-5 py-16 text-center text-gray-400 text-sm">
-                      No responses yet
+                    <td colSpan={3} className="px-5 py-16 text-center">
+                      <p className="text-gray-500 font-medium">Not available</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {search || formId ? 'No responses match your search or filters' : 'No responses yet'}
+                      </p>
                     </td>
                   </tr>
                 )}
