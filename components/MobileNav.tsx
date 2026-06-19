@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X, Moon, Sun, LogOut } from 'lucide-react'
+import { Menu, X, Moon, Sun, LogOut, FileText, ClipboardList } from 'lucide-react'
 
 interface MobileNavProps {
   theme: 'light' | 'dark'
@@ -53,14 +53,14 @@ export default function MobileNav({ theme, onToggleTheme, onLogout }: MobileNavP
               onClick={closeMenu}
               className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-brand-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 font-medium"
             >
-              <span>📊</span> Forms
+              <FileText size={18} /> Forms
             </a>
             <a
               href="/admin/suppliers"
               onClick={closeMenu}
               className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-brand-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 font-medium"
             >
-              <span>📋</span> Responses
+              <ClipboardList size={18} /> Responses
             </a>
           </nav>
 
