@@ -16,10 +16,10 @@ export default async function FormsPage() {
 
   return (
     <>
-      <header className="bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-300 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
+      <header className="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
         <div className="min-w-0">
           <h1 className="font-bold text-2xl md:text-3xl text-gray-900 dark:text-white">Forms</h1>
-          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mt-2 font-medium">Create and manage flexible forms to collect data</p>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 font-medium">Create and manage flexible forms to collect data</p>
         </div>
         <Link href="/admin/forms/new" className="btn btn-primary text-sm md:text-base py-3 px-4 md:px-6 font-semibold shadow-md hover:shadow-lg flex-shrink-0 w-full md:w-auto justify-center">
           <PlusCircle size={18} /> New Form
@@ -38,7 +38,7 @@ export default async function FormsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-6">
             {forms.map(form => {
               const formUrl = `/f/${form.slug}`
               const count = countMap[form.id] || 0
