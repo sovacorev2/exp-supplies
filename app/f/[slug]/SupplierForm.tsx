@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
 import { CheckCircle, Loader2 } from 'lucide-react'
 
@@ -68,7 +69,22 @@ export default function SupplierForm({ form }: { form: Form }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-5">
+    <form onSubmit={handleSubmit} className="card p-6 space-y-6">
+      {/* Logo and title */}
+      <div className="text-center mb-8 pb-6 border-b border-gray-100">
+        <Image 
+          src="/exp-logo.png" 
+          alt="Exp Forms" 
+          width={60} 
+          height={60}
+          className="mx-auto mb-4"
+        />
+        <h1 className="text-2xl font-bold text-gray-900">{form.name}</h1>
+        {form.description && (
+          <p className="text-sm text-gray-600 mt-2">{form.description}</p>
+        )}
+      </div>
+
       {form.fields.map(field => (
         <div key={field.id}>
           <label className="label text-gray-700">
