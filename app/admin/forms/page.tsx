@@ -27,7 +27,7 @@ export default async function FormsPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
-        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {forms.map(form => {
             const formUrl = `/f/${form.slug}`
             const count = countMap[form.id] || 0
@@ -75,8 +75,10 @@ export default async function FormsPage() {
               </div>
             )
           })}
-          
-          {/* Create New Form Card - Below grid on mobile, at the end of grid on desktop */}
+        </div>
+
+        {/* Create New Form Card - Separate container below forms grid */}
+        <div className="mt-4 md:mt-6">
           <Link
             href="/admin/forms/new"
             className="card p-6 md:p-8 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[180px] md:min-h-[240px] group cursor-pointer"
