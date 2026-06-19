@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-silver-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo / Branding */}
         <div className="text-center mb-8">
@@ -47,18 +47,18 @@ export default function AdminLoginPage() {
               alt="Exp Forms" 
               width={80} 
               height={80}
-              className="drop-shadow-lg"
+              className="drop-shadow-2xl"
             />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Exp Forms</h1>
-          <p className="text-sm text-gray-600 mt-1">Admin Access</p>
+          <h1 className="text-4xl font-bold text-white">Exp Forms</h1>
+          <p className="text-base text-gray-300 mt-2">Admin Access</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-6 md:p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Enter Admin Password
               </label>
               <input
@@ -66,27 +66,29 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 disabled={loading}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500 focus:ring-opacity-20 transition-all bg-white"
+                autoComplete="current-password"
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-500 focus:ring-opacity-30 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg tracking-widest"
                 placeholder="••••••••"
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Password will show as dots for security</p>
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600 font-medium">{error}</p>
+              <div className="p-4 bg-red-50 dark:bg-red-900/30 border-2 border-red-300 dark:border-red-700 rounded-lg">
+                <p className="text-base text-red-700 dark:text-red-300 font-semibold">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading || !password}
-              className="w-full px-4 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium rounded-lg hover:from-brand-600 hover:to-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              className="w-full px-4 py-4 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-bold rounded-lg hover:from-brand-600 hover:to-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl text-lg"
             >
               {loading ? 'Verifying...' : 'Access Admin Panel'}
             </button>
           </form>
 
-          <p className="text-xs text-gray-500 text-center mt-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-8 font-medium">
             Data Collection Platform
           </p>
         </div>

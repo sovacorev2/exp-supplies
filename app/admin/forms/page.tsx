@@ -16,56 +16,60 @@ export default async function FormsPage() {
 
   return (
     <>
-      <header className="bg-gradient-to-r from-brand-50 to-brand-100 border-b border-brand-200 px-6 h-16 flex items-center justify-between flex-shrink-0 shadow-sm">
-        <div>
-          <h1 className="font-bold text-lg text-gray-900">Exp Forms</h1>
-          <p className="text-xs text-gray-600 mt-0.5">Create flexible forms to collect supplier data - manage all responses in one place</p>
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
+        <div className="min-w-0">
+          <h1 className="font-bold text-xl md:text-2xl text-gray-900 dark:text-white">Exp Forms</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">Create flexible forms to collect supplier data</p>
         </div>
-        <Link href="/admin/forms/new" className="btn btn-primary text-xs py-2 px-4 font-semibold shadow-md hover:shadow-lg">
-          <PlusCircle size={15} /> Create New Form
+        <Link href="/admin/forms/new" className="btn btn-primary text-sm md:text-base py-3 px-4 md:px-6 font-semibold shadow-md hover:shadow-lg flex-shrink-0 w-full md:w-auto justify-center">
+          <PlusCircle size={18} /> New Form
         </Link>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 to-white">
-        <div className="grid grid-cols-2 gap-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {forms.map(form => {
             const formUrl = `/f/${form.slug}`
             const count = countMap[form.id] || 0
 
             return (
-              <div key={form.id} className="card p-6 hover:shadow-lg transition-all duration-200 border-brand-100">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="font-bold text-gray-900">{form.name}</h2>
-                      <span className={`badge text-xs font-semibold flex-shrink-0 ${form.is_active ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {form.is_active ? '● Live' : '● Paused'}
-                      </span>
+              <div key={form.id} className="card p-5 md:p-6 hover:shadow-lg transition-all duration-200 border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex flex-col h-full">
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h2 className="font-bold text-base md:text-lg text-gray-900 dark:text-white truncate">{form.name}</h2>
+                        <span className={`badge text-xs font-bold flex-shrink-0 px-3 py-1 ${form.is_active ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'}`}>
+                          {form.is_active ? '● Live' : '● Paused'}
+                        </span>
+                      </div>
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        <span className="text-gray-900 dark:text-gray-200 font-semibold">{form.category}</span> • <span>{form.fields.length} fields</span> • <span className="text-brand-600 dark:text-brand-400 font-bold">{count} responses</span>
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">{form.category}</span> • <span className="text-gray-500">{form.fields.length} fields</span> • <span className="text-brand-600 font-semibold">{count} responses</span>
-                    </p>
+                  </div>
+
+                  {form.description && (
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700 line-clamp-2">{form.description}</p>
+                  )}
+
+                  <div className="flex items-center gap-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg px-3 py-2 mb-4 border border-brand-200 dark:border-brand-800">
+                    <code className="text-xs text-brand-700 dark:text-brand-300 flex-1 truncate font-mono">{formUrl}</code>
+                    <div className="flex-shrink-0 relative z-10">
+                      <FormActions formId={form.id} formUrl={formUrl} isActive={form.is_active} />
+                    </div>
                   </div>
                 </div>
 
-                {form.description && (
-                  <p className="text-sm text-gray-600 mb-4 pb-3 border-b border-gray-100 line-clamp-2">{form.description}</p>
-                )}
-
-                <div className="flex items-center gap-2 bg-brand-50 rounded-lg px-3 py-2 mb-4 border border-brand-100">
-                  <code className="text-xs text-brand-700 flex-1 truncate font-mono">{formUrl}</code>
-                  <FormActions formId={form.id} formUrl={formUrl} isActive={form.is_active} />
-                </div>
-
-                <div className="flex gap-2">
-                  <a href={formUrl} target="_blank" className="btn text-xs py-2 px-3 flex-1 text-center hover:bg-brand-50">
-                    <ExternalLink size={13} /> Preview
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <a href={formUrl} target="_blank" className="btn btn-primary text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate z-0">
+                    <ExternalLink size={16} />
                   </a>
-                  <Link href={`/admin/suppliers?form=${form.id}`} className="btn text-xs py-2 px-3 flex-1 text-center hover:bg-brand-50">
-                    <Copy size={13} /> {count}
+                  <Link href={`/admin/suppliers?form=${form.id}`} className="btn text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate z-0">
+                    <Copy size={16} /> <span className="hidden sm:inline">{count}</span>
                   </Link>
-                  <Link href={`/admin/forms/${form.id}/edit`} className="btn btn-primary text-xs py-2 px-3 flex-1 text-center font-semibold">
-                    <Pencil size={13} /> Edit
+                  <Link href={`/admin/forms/${form.id}/edit`} className="btn text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate z-0">
+                    <Pencil size={16} />
                   </Link>
                 </div>
               </div>
@@ -74,13 +78,13 @@ export default async function FormsPage() {
 
           <Link
             href="/admin/forms/new"
-            className="card p-6 border-2 border-dashed border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 flex flex-col items-center justify-center gap-2 text-brand-600 hover:border-brand-400 hover:bg-brand-100 transition-all duration-200 min-h-[220px] group cursor-pointer"
+            className="card p-6 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex flex-col items-center justify-center gap-3 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[200px] md:min-h-[240px] group cursor-pointer"
           >
-            <div className="p-3 bg-brand-100 rounded-full group-hover:bg-brand-200 transition-colors">
-              <PlusCircle size={32} className="text-brand-600" />
+            <div className="p-4 bg-brand-100 dark:bg-brand-900/40 rounded-full group-hover:bg-brand-200 dark:group-hover:bg-brand-900/60 transition-colors">
+              <PlusCircle size={40} className="text-brand-600 dark:text-brand-400" />
             </div>
-            <span className="text-base font-semibold">Create New Form</span>
-            <span className="text-xs text-brand-500">Add a supplier form</span>
+            <span className="text-lg md:text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
+            <span className="text-sm text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
           </Link>
         </div>
       </main>
