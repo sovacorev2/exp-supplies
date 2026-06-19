@@ -91,7 +91,7 @@ export default function NewFormPage() {
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
         {published && (
           <div className="mb-6 flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 shadow-sm">
-            <span className="text-sm font-bold flex-1">✓ Form Published Successfully!</span>
+            <span className="text-sm font-bold flex-1">Form Published Successfully!</span>
             <code className="text-xs bg-white dark:bg-gray-800 px-3 py-1.5 rounded border border-green-200 dark:border-green-700 font-mono text-green-900 dark:text-green-200 break-all">
               {typeof window !== 'undefined' ? window.location.origin : ''}{published}
             </code>
@@ -149,7 +149,7 @@ export default function NewFormPage() {
                   </div>
                 ))}
                 {fields.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet — add one below 👇</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet - add one below</p>
                 )}
               </div>
             </div>
@@ -172,7 +172,7 @@ export default function NewFormPage() {
                 {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
               {newType === 'select' && (
-                <p className="text-xs text-brand-700 dark:text-brand-300 mt-3 p-3 bg-brand-50 dark:bg-brand-900/30 rounded-lg font-medium">💡 Dropdown list - Great for categories, options, or choices</p>
+                <p className="text-xs text-brand-700 dark:text-brand-300 mt-3 p-3 bg-brand-50 dark:bg-brand-900/30 rounded-lg font-medium">Dropdown list - Great for categories, options, or choices</p>
               )}
             </div>
             
