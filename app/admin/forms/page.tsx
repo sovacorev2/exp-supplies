@@ -27,20 +27,20 @@ export default async function FormsPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6">
           {forms.map(form => {
             const formUrl = `/f/${form.slug}`
             const count = countMap[form.id] || 0
 
             return (
-              <div key={form.id} className="card p-5 md:p-6 hover:shadow-lg transition-all duration-200 border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex flex-col h-full md:max-h-96">
+              <div key={form.id} className="card p-5 md:p-6 hover:shadow-lg transition-all duration-200 border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex flex-col h-full">
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h2 className="font-bold text-base md:text-lg text-gray-900 dark:text-white truncate">{form.name}</h2>
                         <span className={`badge text-xs font-bold flex-shrink-0 px-3 py-1 ${form.is_active ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'}`}>
-                          {form.is_active ? '● Live' : '● Paused'}
+                          {form.is_active ? 'Live' : 'Paused'}
                         </span>
                       </div>
                       <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">
@@ -75,31 +75,17 @@ export default async function FormsPage() {
               </div>
             )
           })}
-        </div>
-
-        {/* Create New Form Card - Below grid on mobile, at the end of grid on desktop */}
-        <div className="mt-6 md:mt-8">
+          
+          {/* Create New Form Card - Below grid on mobile, at the end of grid on desktop */}
           <Link
             href="/admin/forms/new"
-            className="hidden md:flex card p-8 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[240px] group cursor-pointer"
+            className="card p-6 md:p-8 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[180px] md:min-h-[240px] group cursor-pointer"
           >
             <div className="p-4 bg-brand-100 dark:bg-brand-900/40 rounded-full group-hover:bg-brand-200 dark:group-hover:bg-brand-900/60 transition-colors">
-              <PlusCircle size={40} className="text-brand-600 dark:text-brand-400" />
+              <PlusCircle size={36} className="text-brand-600 dark:text-brand-400 md:w-10 md:h-10" />
             </div>
-            <span className="text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
-            <span className="text-base text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
-          </Link>
-
-          {/* Mobile version - full width button */}
-          <Link
-            href="/admin/forms/new"
-            className="md:hidden flex w-full card p-6 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[180px] group cursor-pointer"
-          >
-            <div className="p-4 bg-brand-100 dark:bg-brand-900/40 rounded-full group-hover:bg-brand-200 dark:group-hover:bg-brand-900/60 transition-colors">
-              <PlusCircle size={36} className="text-brand-600 dark:text-brand-400" />
-            </div>
-            <span className="text-lg font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
-            <span className="text-sm text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
+            <span className="text-lg md:text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
+            <span className="text-sm md:text-base text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
           </Link>
         </div>
       </main>

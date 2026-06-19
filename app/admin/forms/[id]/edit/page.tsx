@@ -315,7 +315,7 @@ export default function EditFormPage() {
                   )
                 ))}
                 {fields.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-8">No fields yet — add one on the right →</p>
+                  <p className="text-sm text-gray-400 text-center py-8">No fields yet - add one on the right</p>
                 )}
               </div>
             </div>
