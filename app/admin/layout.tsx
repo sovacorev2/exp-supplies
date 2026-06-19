@@ -1,10 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FileText, Users, Tag, PlusCircle,
-  Building2, LogOut
+  Building2, LogOut, Loader
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -18,19 +19,66 @@ const nav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [authenticated, setAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const isAuth = localStorage.getItem('admin_authenticated') === 'true'
+    const loginTime = localStorage.getItem('admin_login_time')
+    
+    // Check if session is still valid (8 hours)
+    if (isAuth && loginTime) {
+      const elapsed = Date.now() - parseInt(loginTime)
+      if (elapsed < 8 * 60 * 60 * 1000) {
+        setAuthenticated(true)
+      } else {
+        localStorage.removeItem('admin_authenticated')
+        localStorage.removeItem('admin_login_time')
+        router.push('/admin-login')
+      }
+    } else {
+      router.push('/admin-login')
+    }
+    setLoading(false)
+  }, [router])
+
+  function handleLogout() {
+    localStorage.removeItem('admin_authenticated')
+    localStorage.removeItem('admin_login_time')
+    document.cookie = 'admin_session=; path=/admin; max-age=0'
+    router.push('/admin-login')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-50 to-white">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-8 h-8 text-brand-500 animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!authenticated) {
+    return null
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col">
-        <div className="px-4 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
-            <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center">
-              <Building2 size={15} className="text-white" />
+      <aside className="w-56 flex-shrink-0 bg-gradient-to-b from-white to-gray-50 border-r border-brand-100 flex flex-col shadow-sm">
+        <div className="px-4 py-6 border-b border-brand-100 bg-gradient-to-r from-brand-50 to-transparent">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-md">
+              <Building2 size={18} className="text-white" />
             </div>
-            SupplyPortal
+            <div>
+              <h1 className="font-bold text-gray-900 text-sm">SupplyPortal</h1>
+              <p className="text-[10px] text-gray-500 font-medium">Exp Agency Admin</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1 ml-9">Agency Admin</p>
         </div>
 
         <nav className="flex-1 px-3 py-3 overflow-y-auto">
@@ -62,8 +110,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="px-3 py-3 border-t border-gray-100">
-          <button className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 w-full">
+        <div className="px-3 py-4 border-t border-gray-100 mt-auto">
+          <p className="text-[10px] text-gray-500 italic text-center mb-4 leading-tight">
+            "Nothing ever becomes real until it is experienced" – John Keats
+          </p>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-red-50 hover:text-red-600 w-full transition-colors font-medium"
+          >
             <LogOut size={16} />
             Sign out
           </button>
