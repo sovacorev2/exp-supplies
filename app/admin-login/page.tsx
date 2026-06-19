@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock } from 'lucide-react'
 
-const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || '1234'
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'exp.admin'
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [pin, setPin] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
 
     // Simulate verification delay
     setTimeout(() => {
-      if (pin === ADMIN_PIN) {
+      if (password === ADMIN_PASSWORD) {
         // Store session token in localStorage and httpOnly cookie
         localStorage.setItem('admin_authenticated', 'true')
         localStorage.setItem('admin_login_time', Date.now().toString())
@@ -29,8 +29,8 @@ export default function AdminLoginPage() {
         
         router.push('/admin')
       } else {
-        setError('Invalid PIN. Please try again.')
-        setPin('')
+        setError('Invalid password. Please try again.')
+        setPassword('')
       }
       setLoading(false)
     }, 500)
@@ -53,16 +53,15 @@ export default function AdminLoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter Admin PIN
+                Enter Admin Password
               </label>
               <input
                 type="password"
-                value={pin}
-                onChange={e => setPin(e.target.value)}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
                 disabled={loading}
-                className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-gray-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500 focus:ring-opacity-20 transition-all bg-white font-mono"
-                placeholder="••••"
-                maxLength={6}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500 focus:ring-opacity-20 transition-all bg-white"
+                placeholder="••••••••"
               />
             </div>
 
@@ -74,7 +73,7 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !pin}
+              disabled={loading || !password}
               className="w-full px-4 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium rounded-lg hover:from-brand-600 hover:to-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
               {loading ? 'Verifying...' : 'Access Admin Panel'}
@@ -88,7 +87,7 @@ export default function AdminLoginPage() {
 
         {/* Footer note */}
         <p className="text-center text-xs text-silver-600 mt-8">
-          Set <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">NEXT_PUBLIC_ADMIN_PIN</code> in environment variables to change PIN
+          Set <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">NEXT_PUBLIC_ADMIN_PASSWORD</code> in environment variables to change password
         </p>
       </div>
     </div>
