@@ -122,13 +122,27 @@ export async function getSubmissions(): Promise<Submission[]> {
   const rows = await db
     .select()
     .from(submissions)
+    .leftJoin(forms, eq(submissions.form_id, forms.id))
     .orderBy(desc(submissions.created_at))
 
-  return rows.map(row => ({
-    ...row,
-    data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data || {},
-    status: row.status as 'pending' | 'approved' | 'rejected',
-  }))
+  return rows.map((row: any) => {
+    const submission = row.submissions
+    const form = row.forms
+    return {
+      id: submission.id,
+      form_id: submission.form_id,
+      data: typeof submission.data === 'string' ? JSON.parse(submission.data) : submission.data || {},
+      status: submission.status as 'pending' | 'approved' | 'rejected',
+      notes: submission.notes,
+      created_at: submission.created_at,
+      updated_at: submission.updated_at,
+      forms: form ? {
+        name: form.name,
+        category: form.category,
+        slug: form.slug,
+      } : undefined,
+    }
+  })
 }
 
 export async function createSubmission(
