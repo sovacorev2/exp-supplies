@@ -3,7 +3,6 @@
 import { db } from '@/lib/db'
 import { forms, submissions } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
-import { generateSlug } from '@/lib/utils'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'number' | 'date' | 'checkbox'
 
@@ -192,5 +191,4 @@ export async function getDashboardStats() {
   }
 }
 
-// Export generateSlug from utils for client code to use
-export { generateSlug }
+

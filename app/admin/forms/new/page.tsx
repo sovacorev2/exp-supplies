@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createForm, generateSlug, type FormField, type FieldType } from '@/app/actions/forms'
+import { createForm, type FormField, type FieldType } from '@/app/actions/forms'
+import { generateSlug } from '@/lib/utils'
 import { Plus, Trash2, GripVertical, ExternalLink, Copy } from 'lucide-react'
 
 const CATEGORIES = [
