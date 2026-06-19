@@ -19,6 +19,7 @@ export default function SuppliersClient({
   const [search, setSearch]     = useState('')
   const [formId, setFormId]     = useState(defaultFormId ?? '')
   const [refreshing, setRefreshing] = useState(false)
+  const [selected, setSelected] = useState<Submission | null>(null)
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -86,25 +87,29 @@ export default function SuppliersClient({
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden" style={{display: 'flex'}}>
+          {/* Flex container for table and detail panel */}
+          <div className="flex flex-1 overflow-hidden">
           {/* Filters */}
-          <div className="bg-white border-b border-gray-200 px-6 py-5 flex items-center gap-4 shadow-sm">
-            <div className="relative flex-1 max-w-lg">
+          <div className="bg-white border-b border-gray-200 px-6 py-5 grid grid-cols-2 gap-4 shadow-sm items-center">
+            <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                className="input pl-10 h-10 text-sm font-medium border-2 border-gray-200 focus:border-brand-500"
+                className="input w-full pl-10 h-11 text-sm font-medium border-2 border-gray-200 focus:border-brand-500"
                 placeholder="Search by company name, email, phone…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <select className="input h-10 text-sm font-medium border-2 border-gray-200 focus:border-brand-500 min-w-48" value={formId} onChange={e => setFormId(e.target.value)}>
-              <option value="">All forms</option>
-              {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            <span className="text-sm text-gray-600 font-semibold bg-brand-50 px-3 py-2 rounded-lg border border-brand-100 whitespace-nowrap">
-              {filtered.length} response{filtered.length !== 1 ? 's' : ''}
-            </span>
+            <div className="flex items-center gap-3">
+              <select className="input flex-1 h-11 text-sm font-medium border-2 border-gray-200 focus:border-brand-500" value={formId} onChange={e => setFormId(e.target.value)}>
+                <option value="">All forms</option>
+                {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <span className="text-sm text-gray-600 font-semibold bg-brand-50 px-3 py-2 rounded-lg border border-brand-100 whitespace-nowrap">
+                {filtered.length}
+              </span>
+            </div>
           </div>
 
           {/* Table */}
@@ -121,8 +126,8 @@ export default function SuppliersClient({
                 {filtered.map((sub: Submission) => (
                   <tr
                     key={sub.id}
-                    onClick={() => router.push(`/admin/suppliers?form=${sub.form_id}`)}
-                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                    onClick={() => setSelected(sub)}
+                    className={`hover:bg-blue-50 cursor-pointer transition-colors ${selected?.id === sub.id ? 'bg-brand-50 border-l-4 border-brand-600' : ''}`}
                   >
                     <td className="px-5 py-4 font-medium text-gray-900">{sub.forms?.name ?? 'Unknown'}</td>
                     <td className="px-3 py-4 text-xs text-gray-600">
@@ -148,9 +153,38 @@ export default function SuppliersClient({
               </tbody>
             </table>
           </div>
+
+          {/* Detail panel */}
+          {selected && (
+            <div className="w-96 flex-shrink-0 border-l border-gray-200 bg-gradient-to-b from-white to-gray-50 overflow-y-auto flex flex-col shadow-lg">
+              <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-white">
+                <div>
+                  <h2 className="font-bold text-gray-900">{selected.forms?.name}</h2>
+                  <p className="text-xs text-gray-500 mt-1">{format(new Date(selected.created_at), 'PPp')}</p>
+                </div>
+                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg">
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-6 flex-1 space-y-5">
+                {Object.entries(selected.data).map(([key, value]: [string, string]) => (
+                  <div key={key} className="bg-white rounded-lg p-4 border border-gray-100">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2">{key}</p>
+                    <p className="text-sm text-gray-800 leading-relaxed break-words">{value || '—'}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 border-t border-gray-200 bg-white">
+                <p className="text-xs text-gray-400 text-center">
+                  Response ID: {selected.id.slice(0, 8)}...
+                </p>
+              </div>
+            </div>
+          )}
+          </div>
         </div>
-
-
       </div>
     </>
   )
