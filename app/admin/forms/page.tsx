@@ -16,10 +16,10 @@ export default async function FormsPage() {
 
   return (
     <>
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
+      <header className="bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-300 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
         <div className="min-w-0">
-          <h1 className="font-bold text-xl md:text-2xl text-gray-900 dark:text-white">Exp Forms</h1>
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">Create flexible forms to collect supplier data</p>
+          <h1 className="font-bold text-2xl md:text-3xl text-gray-900 dark:text-white">Exp Forms</h1>
+          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mt-2 font-medium">Create flexible forms to collect supplier data</p>
         </div>
         <Link href="/admin/forms/new" className="btn btn-primary text-sm md:text-base py-3 px-4 md:px-6 font-semibold shadow-md hover:shadow-lg flex-shrink-0 w-full md:w-auto justify-center">
           <PlusCircle size={18} /> New Form
@@ -33,7 +33,7 @@ export default async function FormsPage() {
             const count = countMap[form.id] || 0
 
             return (
-              <div key={form.id} className="card p-5 md:p-6 hover:shadow-lg transition-all duration-200 border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex flex-col h-full">
+              <div key={form.id} className="card p-5 md:p-6 hover:shadow-lg transition-all duration-200 border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex flex-col h-full md:max-h-96">
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
@@ -75,15 +75,30 @@ export default async function FormsPage() {
               </div>
             )
           })}
+        </div>
 
+        {/* Create New Form Card - Below grid on mobile, at the end of grid on desktop */}
+        <div className="mt-6 md:mt-8">
           <Link
             href="/admin/forms/new"
-            className="card p-6 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex flex-col items-center justify-center gap-3 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[200px] md:min-h-[240px] group cursor-pointer"
+            className="hidden md:flex card p-8 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[240px] group cursor-pointer"
           >
             <div className="p-4 bg-brand-100 dark:bg-brand-900/40 rounded-full group-hover:bg-brand-200 dark:group-hover:bg-brand-900/60 transition-colors">
               <PlusCircle size={40} className="text-brand-600 dark:text-brand-400" />
             </div>
-            <span className="text-lg md:text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
+            <span className="text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
+            <span className="text-base text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
+          </Link>
+
+          {/* Mobile version - full width button */}
+          <Link
+            href="/admin/forms/new"
+            className="md:hidden flex w-full card p-6 border-2 border-dashed border-brand-400 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/20 flex-col items-center justify-center gap-4 text-brand-700 dark:text-brand-300 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-all duration-200 min-h-[180px] group cursor-pointer"
+          >
+            <div className="p-4 bg-brand-100 dark:bg-brand-900/40 rounded-full group-hover:bg-brand-200 dark:group-hover:bg-brand-900/60 transition-colors">
+              <PlusCircle size={36} className="text-brand-600 dark:text-brand-400" />
+            </div>
+            <span className="text-lg font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
             <span className="text-sm text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
           </Link>
         </div>
