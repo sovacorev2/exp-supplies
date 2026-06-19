@@ -8,6 +8,7 @@ import {
   LayoutDashboard, FileText, PlusCircle, LogOut, Loader, Moon, Sun
 } from 'lucide-react'
 import clsx from 'clsx'
+import MobileNav from '@/components/MobileNav'
 
 
 const nav = [
@@ -87,9 +88,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-56 flex-shrink-0 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-r border-brand-100 dark:border-gray-700 flex-col shadow-sm">
+    <>
+      <MobileNav theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
+      <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+        {/* Sidebar */}
+        <aside className="hidden md:flex w-56 flex-shrink-0 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-r border-brand-100 dark:border-gray-700 flex-col shadow-sm">
         <div className="px-4 py-6 border-b border-brand-100 bg-gradient-to-r from-brand-50 to-transparent flex items-center gap-3">
           <Image 
             src="/exp-logo.png" 
@@ -152,10 +155,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
+        {/* Main */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {children}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
