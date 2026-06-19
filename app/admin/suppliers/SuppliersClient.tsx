@@ -3,28 +3,24 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
-import { Search, X, Download, RefreshCw } from 'lucide-react'
+import { Search, Download, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
-import clsx from 'clsx'
 
 export default function SuppliersClient({
   submissions,
   forms,
-  defaultCategory,
-  defaultStatus,
   defaultFormId,
 }: {
   submissions: Submission[]
   forms: Form[]
-  defaultCategory?: string
-  defaultStatus?: string
   defaultFormId?: string
 }) {
   const router = useRouter()
   const [search, setSearch]     = useState('')
   const [formId, setFormId]     = useState(defaultFormId ?? '')
-  const [selected, setSelected] = useState<Submission | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo]     = useState('')
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -39,9 +35,14 @@ export default function SuppliersClient({
       const text        = Object.values(s.data).join(' ').toLowerCase()
       const matchSearch = !search || text.includes(search.toLowerCase())
       const matchForm   = !formId || s.form_id === formId
-      return matchSearch && matchForm
+      
+      const submittedDate = new Date(s.created_at).toDateString()
+      const matchDateFrom = !dateFrom || new Date(s.created_at) >= new Date(dateFrom)
+      const matchDateTo   = !dateTo || new Date(s.created_at) <= new Date(dateTo + 'T23:59:59')
+      
+      return matchSearch && matchForm && matchDateFrom && matchDateTo
     })
-  }, [submissions, search, formId])
+  }, [submissions, search, formId, dateFrom, dateTo])
 
 
 
@@ -50,12 +51,11 @@ export default function SuppliersClient({
     if (!filtered.length) return
     const keys = Array.from(new Set(filtered.flatMap((s: Submission) => Object.keys(s.data))))
     const rows: string[][] = [
-      ['Status', 'Form', ...keys, 'Submitted'],
+      ['Form', ...keys, 'Submitted'],
       ...filtered.map((s: Submission) => [
-        s.status,
         s.forms?.name ?? '',
         ...keys.map(k => s.data[k] ?? ''),
-        format(new Date(s.created_at), 'yyyy-MM-dd'),
+        format(new Date(s.created_at), 'yyyy-MM-dd HH:mm'),
       ]),
     ]
     const csv = rows
@@ -63,7 +63,7 @@ export default function SuppliersClient({
       .join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `suppliers-${format(new Date(), 'yyyyMMdd')}.csv`
+    a.download = `responses-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`
     a.click()
   }
 
@@ -95,23 +95,52 @@ export default function SuppliersClient({
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Filters */}
-          <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
-            <div className="relative flex-1 max-w-xs">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                className="input pl-8 h-8 text-xs"
-                placeholder="Search responses…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+          <div className="bg-white border-b border-gray-100 px-5 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-xs">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  className="input pl-8 h-8 text-xs"
+                  placeholder="Search responses…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <select className="input h-8 text-xs" value={formId} onChange={e => setFormId(e.target.value)}>
+                <option value="">All forms</option>
+                {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <span className="text-xs text-gray-500 font-medium">
+                {filtered.length} response{filtered.length !== 1 ? 's' : ''}
+              </span>
             </div>
-            <select className="input h-8 text-xs" value={formId} onChange={e => setFormId(e.target.value)}>
-              <option value="">All forms</option>
-              {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            <span className="text-xs text-gray-500 ml-auto font-medium">
-              {filtered.length} response{filtered.length !== 1 ? 's' : ''}
-            </span>
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-medium text-gray-600">From:</label>
+              <input
+                type="date"
+                className="input h-8 text-xs"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+              />
+              <label className="text-xs font-medium text-gray-600">To:</label>
+              <input
+                type="date"
+                className="input h-8 text-xs"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => {
+                    setDateFrom('')
+                    setDateTo('')
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 ml-auto font-medium"
+                >
+                  Clear dates
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Table */}
@@ -128,11 +157,8 @@ export default function SuppliersClient({
                 {filtered.map((sub: Submission) => (
                   <tr
                     key={sub.id}
-                    onClick={() => setSelected(sub)}
-                    className={clsx(
-                      'hover:bg-blue-50 cursor-pointer transition-colors',
-                      selected?.id === sub.id && 'bg-brand-50 border-l-4 border-brand-600'
-                    )}
+                    onClick={() => router.push(`/admin/suppliers?form=${sub.form_id}`)}
+                    className="hover:bg-blue-50 cursor-pointer transition-colors"
                   >
                     <td className="px-5 py-4 font-medium text-gray-900">{sub.forms?.name ?? 'Unknown'}</td>
                     <td className="px-3 py-4 text-xs text-gray-600">
@@ -157,35 +183,7 @@ export default function SuppliersClient({
           </div>
         </div>
 
-        {/* Detail panel */}
-        {selected && (
-          <div className="w-96 flex-shrink-0 border-l border-gray-200 bg-gradient-to-b from-white to-gray-50 overflow-y-auto flex flex-col shadow-lg">
-            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-white">
-              <div>
-                <h2 className="font-bold text-gray-900">{selected.forms?.name}</h2>
-                <p className="text-xs text-gray-500 mt-1">{format(new Date(selected.created_at), 'PPp')}</p>
-              </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg">
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="p-6 flex-1 space-y-5">
-              {Object.entries(selected.data).map(([key, value]: [string, string]) => (
-                <div key={key} className="bg-white rounded-lg p-4 border border-gray-100">
-                  <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2">{key}</p>
-                  <p className="text-sm text-gray-800 leading-relaxed break-words">{value || '—'}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <p className="text-xs text-gray-400 text-center">
-                Response ID: {selected.id.slice(0, 8)}...
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </>
   )
