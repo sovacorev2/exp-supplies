@@ -18,8 +18,8 @@ export default async function FormsPage() {
     <>
       <header className="bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-300 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
         <div className="min-w-0">
-          <h1 className="font-bold text-2xl md:text-3xl text-gray-900 dark:text-white">Exp Forms</h1>
-          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mt-2 font-medium">Create flexible forms to collect supplier data</p>
+          <h1 className="font-bold text-2xl md:text-3xl text-gray-900 dark:text-white">Forms</h1>
+          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mt-2 font-medium">Create and manage flexible forms to collect data</p>
         </div>
         <Link href="/admin/forms/new" className="btn btn-primary text-sm md:text-base py-3 px-4 md:px-6 font-semibold shadow-md hover:shadow-lg flex-shrink-0 w-full md:w-auto justify-center">
           <PlusCircle size={18} /> New Form
@@ -27,7 +27,8 @@ export default async function FormsPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Your Forms</h2>
+        <div className="flex flex-col md:grid md:grid-cols-2 md:gap-6 gap-4">
           {forms.map(form => {
             const formUrl = `/f/${form.slug}`
             const count = countMap[form.id] || 0
@@ -87,7 +88,7 @@ export default async function FormsPage() {
               <PlusCircle size={36} className="text-brand-600 dark:text-brand-400 md:w-10 md:h-10" />
             </div>
             <span className="text-lg md:text-xl font-bold text-brand-900 dark:text-brand-200">Create New Form</span>
-            <span className="text-sm md:text-base text-brand-700 dark:text-brand-400 font-medium">Add a supplier form</span>
+            <span className="text-sm md:text-base text-brand-700 dark:text-brand-400 font-medium">Build a new form for your needs</span>
           </Link>
         </div>
       </main>

@@ -113,15 +113,15 @@ export default function NewFormPage() {
         <div className="card p-5 md:p-6 space-y-5 mb-6 md:mb-8">
           <div>
             <h2 className="font-bold text-lg text-gray-900 dark:text-white">Step 1: Form Details</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Name your form and describe what you need from suppliers</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Name your form and describe what information you need</p>
           </div>
           <div>
             <label className="label">Form name *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Catering Suppliers 2025" />
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Event Attendees 2025" />
           </div>
           <div>
-            <label className="label">Description (shown to suppliers)</label>
-            <textarea className="input" rows={4} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell suppliers what this form is for…" />
+            <label className="label">Description (shown to respondents)</label>
+            <textarea className="input" rows={4} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell respondents what this form is for…" />
           </div>
         </div>
 
