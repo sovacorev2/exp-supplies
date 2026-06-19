@@ -78,10 +78,13 @@ export default function NewFormPage() {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0 shadow-sm">
-        <h1 className="font-semibold text-gray-900">Create New Form</h1>
-        <button onClick={publish} disabled={saving || !name} className="btn btn-primary text-xs py-1.5 px-4">
-          {saving ? 'Publishing…' : 'Publish form'}
+      <header className="bg-gradient-to-r from-brand-50 to-brand-100 border-b border-brand-200 px-6 h-16 flex items-center justify-between flex-shrink-0 shadow-sm">
+        <div>
+          <h1 className="font-bold text-lg text-gray-900">Create Exp Form</h1>
+          <p className="text-xs text-gray-600 mt-0.5">Design your form by adding any fields you need</p>
+        </div>
+        <button onClick={publish} disabled={saving || !name} className="btn btn-primary text-xs py-2 px-4 font-semibold">
+          {saving ? 'Publishing…' : 'Publish Form'}
         </button>
       </header>
 
