@@ -13,8 +13,6 @@ const nav = [
   { label: 'Dashboard',    href: '/admin',             icon: LayoutDashboard },
   { label: 'Forms',        href: '/admin/forms',        icon: FileText,  section: 'Forms' },
   { label: 'New form',     href: '/admin/forms/new',    icon: PlusCircle },
-  { label: 'All suppliers', href: '/admin/suppliers',   icon: Users, section: 'Suppliers' },
-  { label: 'By category',  href: '/admin/categories',   icon: Tag },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -75,8 +73,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Building2 size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-sm">SupplyPortal</h1>
-              <p className="text-[10px] text-gray-500 font-medium">Exp Agency Admin</p>
+              <h1 className="font-bold text-gray-900 text-sm">Exp Forms</h1>
+              <p className="text-[10px] text-gray-500 font-medium">Data Collection</p>
             </div>
           </div>
         </div>
