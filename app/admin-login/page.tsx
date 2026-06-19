@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock } from 'lucide-react'
+import Image from 'next/image'
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'exp.admin'
 
@@ -41,11 +41,17 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo / Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg mb-4">
-            <Lock className="w-8 h-8 text-white" />
+          <div className="inline-block mb-4">
+            <Image 
+              src="/exp-logo.png" 
+              alt="Exp Forms" 
+              width={80} 
+              height={80}
+              className="drop-shadow-lg"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">SupplyPortal</h1>
-          <p className="text-sm text-silver-600 mt-1">Agency Admin Access</p>
+          <h1 className="text-3xl font-bold text-gray-900">Exp Forms</h1>
+          <p className="text-sm text-gray-600 mt-1">Admin Access</p>
         </div>
 
         {/* Card */}
@@ -80,15 +86,10 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <p className="text-xs text-silver-500 text-center mt-6">
-            "Nothing ever becomes real until it is experienced" – John Keats
+          <p className="text-xs text-gray-500 text-center mt-6">
+            Data Collection Platform
           </p>
         </div>
-
-        {/* Footer note */}
-        <p className="text-center text-xs text-silver-600 mt-8">
-          Set <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">NEXT_PUBLIC_ADMIN_PASSWORD</code> in environment variables to change password
-        </p>
       </div>
     </div>
   )

@@ -88,21 +88,21 @@ export default function SuppliersClient({
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Filters */}
-          <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="bg-white border-b border-gray-200 px-6 py-5 flex items-center gap-4 shadow-sm">
+            <div className="relative flex-1 max-w-lg">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                className="input pl-8 h-9 text-sm"
+                className="input pl-10 h-10 text-sm font-medium border-2 border-gray-200 focus:border-brand-500"
                 placeholder="Search by company name, email, phone…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <select className="input h-9 text-sm" value={formId} onChange={e => setFormId(e.target.value)}>
+            <select className="input h-10 text-sm font-medium border-2 border-gray-200 focus:border-brand-500 min-w-48" value={formId} onChange={e => setFormId(e.target.value)}>
               <option value="">All forms</option>
               {forms.map((f: Form) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
-            <span className="text-sm text-gray-500 font-medium">
+            <span className="text-sm text-gray-600 font-semibold bg-brand-50 px-3 py-2 rounded-lg border border-brand-100 whitespace-nowrap">
               {filtered.length} response{filtered.length !== 1 ? 's' : ''}
             </span>
           </div>

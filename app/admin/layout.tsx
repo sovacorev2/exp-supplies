@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, FileText, Users, Tag, PlusCircle,
-  Building2, LogOut, Loader
+  LayoutDashboard, FileText, PlusCircle, LogOut, Loader
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -67,15 +67,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 bg-gradient-to-b from-white to-gray-50 border-r border-brand-100 flex flex-col shadow-sm">
-        <div className="px-4 py-6 border-b border-brand-100 bg-gradient-to-r from-brand-50 to-transparent">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-md">
-              <Building2 size={18} className="text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-gray-900 text-sm">Exp Forms</h1>
-              <p className="text-[10px] text-gray-500 font-medium">Data Collection</p>
-            </div>
+        <div className="px-4 py-6 border-b border-brand-100 bg-gradient-to-r from-brand-50 to-transparent flex items-center gap-3">
+          <Image 
+            src="/exp-logo.png" 
+            alt="Exp Forms" 
+            width={40} 
+            height={40}
+            className="rounded-lg"
+          />
+          <div>
+            <h1 className="font-bold text-gray-900 text-sm">Exp Forms</h1>
+            <p className="text-[10px] text-gray-500 font-medium">Data Collection</p>
           </div>
         </div>
 
