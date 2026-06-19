@@ -45,12 +45,24 @@ export default function SupplierForm({ form }: { form: Form }) {
 
   if (submitted) {
     return (
-      <div className="card p-10 text-center">
-        <CheckCircle size={48} className="text-brand-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Registration submitted!</h2>
-        <p className="text-gray-500 text-sm leading-relaxed">
-          Thank you for registering. Our team will review your details and get in touch with you soon.
+      <div className="text-center py-16">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-6">
+          <CheckCircle size={56} className="text-green-600" />
+        </div>
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">Thank you!</h2>
+        <p className="text-gray-600 text-lg leading-relaxed max-w-md mx-auto mb-8">
+          Your response has been received and saved to our system.
         </p>
+        <button
+          onClick={() => {
+            setSubmitted(false)
+            setValues({})
+            setErrors({})
+          }}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white font-semibold rounded-lg hover:from-brand-700 hover:to-brand-800 transition-all shadow-md hover:shadow-lg"
+        >
+          Submit Another Response
+        </button>
       </div>
     )
   }
