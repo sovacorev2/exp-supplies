@@ -169,9 +169,9 @@ export default function EditFormPage() {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between flex-shrink-0 shadow-sm">
-        <h1 className="font-semibold text-gray-900">Edit Form</h1>
-        <div className="flex items-center gap-2">
+      <header className="bg-brand-600 dark:bg-brand-700 border-b border-brand-700 dark:border-brand-800 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-3">
+        <h1 className="font-bold text-lg md:text-xl text-white">Edit Form</h1>
+        <div className="flex items-center gap-2 flex-wrap">
           {saved && (
             <div className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-medium">
               <Check size={14} /> Saved
@@ -194,10 +194,10 @@ export default function EditFormPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="grid grid-cols-5 gap-5 items-start">
-          <div className="col-span-3 space-y-4">
-            <div className="card p-5 space-y-4">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
+        <div className="flex flex-col lg:grid lg:grid-cols-5 gap-4 md:gap-6 items-start">
+          <div className="w-full lg:col-span-3 space-y-4">
+            <div className="card p-5 md:p-6 space-y-4">
               <div>
                 <label className="label">Form name *</label>
                 <input 
@@ -230,8 +230,8 @@ export default function EditFormPage() {
             </div>
 
             <div className="card">
-              <div className="px-5 py-3.5 border-b border-gray-100">
-                <h2 className="font-medium text-sm">Form fields ({fields.length})</h2>
+              <div className="px-5 md:px-6 py-3.5 md:py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <h2 className="font-bold text-base text-gray-900 dark:text-white">Form fields ({fields.length})</h2>
               </div>
               <div className="p-4 space-y-2">
                 {fields.map((f: FormField) => (
@@ -246,7 +246,7 @@ export default function EditFormPage() {
                           autoFocus
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="label">Type</label>
                           <select 
@@ -321,8 +321,8 @@ export default function EditFormPage() {
             </div>
           </div>
 
-          <div className="col-span-2 card p-5 space-y-4 sticky top-0">
-            <h2 className="font-medium text-sm">Add a field</h2>
+          <div className="w-full lg:col-span-2 card p-5 md:p-6 space-y-4 lg:sticky lg:top-0">
+            <h2 className="font-bold text-base md:text-lg">Add a field</h2>
             <div>
               <label className="label">Field label</label>
               <input 
