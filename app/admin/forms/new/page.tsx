@@ -78,68 +78,70 @@ export default function NewFormPage() {
 
   return (
     <>
-      <header className="bg-gradient-to-r from-brand-50 to-brand-100 border-b border-brand-200 px-6 h-16 flex items-center justify-between flex-shrink-0 shadow-sm">
-        <div>
-          <h1 className="font-bold text-lg text-gray-900">Create Exp Form</h1>
-          <p className="text-xs text-gray-600 mt-0.5">Design your form by adding any fields you need</p>
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-4">
+        <div className="min-w-0">
+          <h1 className="font-bold text-xl md:text-2xl text-gray-900 dark:text-white">Create Form</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">Design your form by adding any fields you need</p>
         </div>
-        <button onClick={publish} disabled={saving || !name} className="btn btn-primary text-xs py-2 px-4 font-semibold">
+        <button onClick={publish} disabled={saving || !name} className="btn btn-primary text-sm md:text-base py-3 px-4 md:px-6 font-bold flex-shrink-0 w-full md:w-auto justify-center">
           {saving ? 'Publishing…' : 'Publish Form'}
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
         {published && (
-          <div className="mb-5 flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-brand-50 to-brand-100 border border-brand-200 text-brand-700 shadow-sm">
-            <span className="text-sm font-semibold flex-1">Form Published Successfully!</span>
-            <code className="text-xs bg-white px-3 py-1.5 rounded border border-brand-200 font-mono">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 shadow-sm">
+            <span className="text-sm font-bold flex-1">✓ Form Published Successfully!</span>
+            <code className="text-xs bg-white dark:bg-gray-800 px-3 py-1.5 rounded border border-green-200 dark:border-green-700 font-mono text-green-900 dark:text-green-200 break-all">
               {typeof window !== 'undefined' ? window.location.origin : ''}{published}
             </code>
-            <button onClick={copyLink} className="btn text-xs py-1 px-2 bg-white border-brand-200 text-brand-600 hover:bg-brand-50">
-              <Copy size={12} /> Copy
-            </button>
-            <a href={published} target="_blank" className="btn text-xs py-1 px-2 bg-brand-500 text-white hover:bg-brand-600">
-              <ExternalLink size={12} /> Open
-            </a>
-            <button onClick={() => router.push('/admin/forms')} className="ml-auto btn text-xs py-1 px-2 bg-white border-brand-200">
-              Done
-            </button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button onClick={copyLink} className="btn text-xs py-2 px-3 bg-white dark:bg-gray-800 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30">
+                <Copy size={14} />
+              </button>
+              <a href={published} target="_blank" className="btn text-xs py-2 px-3 bg-green-600 text-white hover:bg-green-700">
+                <ExternalLink size={14} />
+              </a>
+              <button onClick={() => router.push('/admin/forms')} className="btn text-xs py-2 px-3 bg-white dark:bg-gray-800 border-green-200 dark:border-green-700 text-gray-600 dark:text-gray-300">
+                Done
+              </button>
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-5 gap-5 items-start">
-          <div className="col-span-3 space-y-4">
-            <div className="card p-5 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 items-start">
+          <div className="lg:col-span-3 space-y-4 md:space-y-6 order-2 lg:order-1">
+            <div className="card p-5 md:p-6 space-y-5">
               <div>
                 <label className="label">Form name *</label>
                 <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Catering Suppliers 2025" />
               </div>
               <div>
                 <label className="label">Description (shown to suppliers)</label>
-                <textarea className="input" rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell suppliers what this form is for…" />
+                <textarea className="input" rows={4} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell suppliers what this form is for…" />
               </div>
             </div>
 
-            <div className="card">
-              <div className="px-5 py-3.5 border-b border-gray-100">
-                <h2 className="font-medium text-sm">Form fields ({fields.length})</h2>
+            <div className="card p-0 overflow-hidden">
+              <div className="px-5 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <h2 className="font-bold text-base text-gray-900 dark:text-white">Form fields ({fields.length})</h2>
               </div>
-              <div className="p-4 space-y-2">
+              <div className="p-4 md:p-6 space-y-3">
                 {fields.map((f: FormField) => (
-                  <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 group">
-                    <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
+                  <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
+                    <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                         {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {FIELD_TYPES.find(t => t.value === f.type)?.label}
                         {f.placeholder && ` • "${f.placeholder}"`}
                       </p>
                     </div>
                     <button 
                       onClick={() => removeField(f.id)} 
-                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
                       title="Delete field"
                     >
                       <Trash2 size={16} />
@@ -147,21 +149,21 @@ export default function NewFormPage() {
                   </div>
                 ))}
                 {fields.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-8">No fields yet — add one on the right →</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet — add one below 👇</p>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="col-span-2 card p-5 space-y-4 sticky top-0">
+          <div className="lg:col-span-2 card p-5 md:p-6 space-y-5 order-1 lg:order-2 lg:sticky lg:top-24 bg-gradient-to-b from-brand-50 dark:from-brand-900/20 to-white dark:to-gray-800">
             <div>
-              <h2 className="font-semibold text-sm text-gray-900">Add a field</h2>
-              <p className="text-xs text-gray-500 mt-1">Build your form by adding fields below</p>
+              <h2 className="font-bold text-lg text-gray-900 dark:text-white">Add a Field</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Build your form step by step</p>
             </div>
             
             <div>
-              <label className="label">Field label</label>
-              <input className="input" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="e.g. Delivery area, Category, Service Type" />
+              <label className="label">Field label *</label>
+              <input className="input" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="e.g. Delivery area" />
             </div>
             
             <div>
@@ -170,28 +172,28 @@ export default function NewFormPage() {
                 {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
               {newType === 'select' && (
-                <p className="text-xs text-gray-500 mt-2">💡 Use this for categories, options, or any list you want suppliers to choose from</p>
+                <p className="text-xs text-brand-700 dark:text-brand-300 mt-3 p-3 bg-brand-50 dark:bg-brand-900/30 rounded-lg font-medium">💡 Dropdown list - Great for categories, options, or choices</p>
               )}
             </div>
             
             {newType === 'select' && (
               <div>
                 <label className="label">Dropdown options (one per line)</label>
-                <textarea className="input" rows={5} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Tents & Shelter\nElectronics & AV\nFood & Catering\nTransport & Logistics\nFurniture & Decor"} />
+                <textarea className="input" rows={5} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Option 1\nOption 2\nOption 3"} />
               </div>
             )}
             {newType !== 'select' && newType !== 'checkbox' && (
               <div>
                 <label className="label">Placeholder text</label>
-                <input className="input" value={newPlaceholder} onChange={e => setNewPlaceholder(e.target.value)} placeholder="Hint text inside the field" />
+                <input className="input" value={newPlaceholder} onChange={e => setNewPlaceholder(e.target.value)} placeholder="Hint text" />
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="req" checked={newRequired} onChange={e => setNewRequired(e.target.checked)} className="rounded" />
-              <label htmlFor="req" className="text-sm text-gray-600">Required field</label>
-            </div>
-            <button onClick={addField} disabled={!newLabel.trim()} className="btn btn-primary w-full justify-center">
-              <Plus size={15} /> Add field
+            <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer transition-colors">
+              <input type="checkbox" id="req" checked={newRequired} onChange={e => setNewRequired(e.target.checked)} className="w-5 h-5 rounded" />
+              <span className="text-base font-medium text-gray-700 dark:text-gray-300">Required field</span>
+            </label>
+            <button onClick={addField} disabled={!newLabel.trim()} className="btn btn-primary w-full justify-center py-3 text-base font-bold">
+              <Plus size={18} /> Add field
             </button>
           </div>
         </div>

@@ -116,31 +116,56 @@ export default function SuppliersClient({
         {/* Table section */}
         <div className="flex-1 overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 border-b border-gray-200 dark:border-gray-600">
-              <tr>
-                <th className="text-left px-4 md:px-6 py-4 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Form</th>
-                <th className="text-left px-4 md:px-6 py-4 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase hidden md:table-cell">Preview</th>
-                <th className="text-left px-4 md:px-6 py-4 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Submitted</th>
+            <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 border-b-2 border-gray-200 dark:border-gray-600">
+              <tr className="hidden md:table-row">
+                <th className="text-left px-4 md:px-6 py-4 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Response</th>
+                <th className="text-left px-4 md:px-6 py-4 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Preview</th>
+                <th className="text-left px-4 md:px-6 py-4 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Date</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
-              {filtered.map((sub: Submission) => (
-                <tr
-                  key={sub.id}
-                  onClick={() => setSelected(sub)}
-                  className={`hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${selected?.id === sub.id ? 'bg-brand-50 dark:bg-brand-900/20 border-l-4 border-brand-600' : ''}`}
-                >
-                  <td className="px-4 md:px-6 py-4 font-medium text-gray-900 dark:text-gray-100 text-sm break-words">{sub.forms?.name ?? 'Unknown'}</td>
-                  <td className="px-4 md:px-6 py-4 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                    <div className="line-clamp-2">
-                      {Object.values(sub.data).slice(0, 3).join(' • ') || '—'}
-                    </div>
-                  </td>
-                  <td className="px-4 md:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {format(new Date(sub.created_at), 'MMM d, yyyy')}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((sub: Submission) => {
+                const previewText = Object.values(sub.data).slice(0, 2).join(' • ')
+                return (
+                  <tr
+                    key={sub.id}
+                    onClick={() => setSelected(sub)}
+                    className={`hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors md:hover:bg-gray-50 md:dark:hover:bg-gray-700 ${selected?.id === sub.id ? 'bg-brand-50 dark:bg-brand-900/20 md:border-l-4 md:border-brand-600' : ''}`}
+                  >
+                    {/* Mobile Card View */}
+                    <td colSpan={3} className="px-4 py-4 md:hidden">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">From</p>
+                            <p className="font-semibold text-gray-900 dark:text-white text-sm">{sub.forms?.name ?? 'Unknown'}</p>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap pt-6">
+                            {format(new Date(sub.created_at), 'MMM d')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Response</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
+                            {previewText || '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Desktop Table View */}
+                    <td className="hidden md:table-cell px-4 md:px-6 py-4 font-semibold text-gray-900 dark:text-gray-100 text-sm">{sub.forms?.name ?? 'Unknown'}</td>
+                    <td className="hidden md:table-cell px-4 md:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="line-clamp-2">
+                        {previewText || '—'}
+                      </div>
+                    </td>
+                    <td className="hidden md:table-cell px-4 md:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {format(new Date(sub.created_at), 'MMM d, yyyy')}
+                    </td>
+                  </tr>
+                )
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 md:px-6 py-16 md:py-24 text-center">
