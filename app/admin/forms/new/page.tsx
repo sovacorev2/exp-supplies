@@ -109,56 +109,62 @@ export default function NewFormPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 items-start">
-          <div className="lg:col-span-3 space-y-4 md:space-y-6 order-2 lg:order-1">
-            <div className="card p-5 md:p-6 space-y-5">
-              <div>
-                <label className="label">Form name *</label>
-                <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Catering Suppliers 2025" />
-              </div>
-              <div>
-                <label className="label">Description (shown to suppliers)</label>
-                <textarea className="input" rows={4} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell suppliers what this form is for…" />
-              </div>
-            </div>
+        {/* Step 1: Form Details at the top */}
+        <div className="card p-5 md:p-6 space-y-5 mb-6 md:mb-8">
+          <div>
+            <h2 className="font-bold text-lg text-gray-900 dark:text-white">Step 1: Form Details</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Name your form and describe what you need from suppliers</p>
+          </div>
+          <div>
+            <label className="label">Form name *</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Catering Suppliers 2025" />
+          </div>
+          <div>
+            <label className="label">Description (shown to suppliers)</label>
+            <textarea className="input" rows={4} value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell suppliers what this form is for…" />
+          </div>
+        </div>
 
-            <div className="card p-0 overflow-hidden">
-              <div className="px-5 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <h2 className="font-bold text-base text-gray-900 dark:text-white">Form fields ({fields.length})</h2>
-              </div>
-              <div className="p-4 md:p-6 space-y-3">
-                {fields.map((f: FormField) => (
-                  <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
-                    <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                        {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {FIELD_TYPES.find(t => t.value === f.type)?.label}
-                        {f.placeholder && ` • "${f.placeholder}"`}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => removeField(f.id)} 
-                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
-                      title="Delete field"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+        {/* Step 2: Add Fields Section */}
+        <div className="space-y-6">
+          <div className="card p-0 overflow-hidden">
+            <div className="px-5 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <h2 className="font-bold text-lg text-gray-900 dark:text-white">Step 2: Add Form Fields</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">({fields.length} fields added)</p>
+            </div>
+            <div className="p-4 md:p-6 space-y-3">
+              {fields.map((f: FormField) => (
+                <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
+                  <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {FIELD_TYPES.find(t => t.value === f.type)?.label}
+                      {f.placeholder && ` • "${f.placeholder}"`}
+                    </p>
                   </div>
-                ))}
-                {fields.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet - add one below</p>
-                )}
-              </div>
+                  <button 
+                    onClick={() => removeField(f.id)} 
+                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
+                    title="Delete field"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              {fields.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet - add one below</p>
+              )}
             </div>
           </div>
 
-          <div className="lg:col-span-2 card p-5 md:p-6 space-y-5 order-1 lg:order-2 lg:sticky lg:top-24 bg-gradient-to-b from-brand-50 dark:from-brand-900/20 to-white dark:to-gray-800">
+          {/* Add Field Form */}
+          <div className="card p-5 md:p-6 space-y-5 bg-gradient-to-b from-brand-50 dark:from-brand-900/20 to-white dark:to-gray-800">
             <div>
-              <h2 className="font-bold text-lg text-gray-900 dark:text-white">Add a Field</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Build your form step by step</p>
+              <h3 className="font-bold text-base text-gray-900 dark:text-white">Add a new field</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Fill in the details below and click Add field</p>
             </div>
             
             <div>
