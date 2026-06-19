@@ -17,15 +17,15 @@ export default async function FormsPage() {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       {/* Header */}
-      <header className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-4 md:px-6 md:py-5">
+      <header className="flex-shrink-0 bg-brand-600 dark:bg-brand-700 border-b border-brand-700 dark:border-brand-800 px-4 py-4 md:px-6 md:py-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Forms</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Create and manage your forms</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Forms</h1>
+            <p className="text-sm text-brand-100 mt-1">Create and manage your forms</p>
           </div>
           <Link 
             href="/admin/forms/new" 
-            className="btn btn-primary flex items-center justify-center gap-2 py-2.5 px-4 md:py-3 md:px-6 font-semibold text-sm md:text-base whitespace-nowrap"
+            className="flex items-center justify-center gap-2 py-2.5 px-4 md:py-3 md:px-6 font-semibold text-sm md:text-base whitespace-nowrap bg-white hover:bg-gray-100 text-brand-600 rounded-lg transition-colors"
           >
             <PlusCircle size={18} />
             New Form
