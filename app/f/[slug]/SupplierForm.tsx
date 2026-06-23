@@ -131,6 +131,38 @@ export default function SupplierForm({ form }: { form: Form }) {
               value={values[field.label] || ''}
               onChange={e => set(field.label, e.target.value)}
             />
+          ) : field.hasSuboptions ? (
+            <div className="space-y-3">
+              <select
+                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
+                value={values[field.label] || ''}
+                onChange={e => set(field.label, e.target.value)}
+              >
+                <option value="">Select {field.label}…</option>
+                {field.options?.map((opt, idx) => {
+                  const label = typeof opt === 'string' ? opt : opt.label
+                  return <option key={idx} value={label}>{label}</option>
+                })}
+              </select>
+              
+              {values[field.label] && getSuboptionsForCategory(values[field.label], field).length > 0 && (
+                <div>
+                  <label className={`label dark:text-gray-300 text-sm ${field.suboptionsRequired ? '' : 'opacity-75'}`}>
+                    Subcategory {field.suboptionsRequired && <span className="text-red-400">*</span>}
+                  </label>
+                  <select
+                    className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[`${field.label}_sub`] ? 'border-red-400' : ''}`}
+                    value={values[`${field.label}_sub`] || ''}
+                    onChange={e => set(`${field.label}_sub`, e.target.value)}
+                  >
+                    <option value="">Choose a subcategory…</option>
+                    {getSuboptionsForCategory(values[field.label], field).map((sub, idx) => (
+                      <option key={idx} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           ) : field.type === 'select' ? (
             <select
               className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
@@ -190,38 +222,6 @@ export default function SupplierForm({ form }: { form: Form }) {
                     return typeMap[t] || t
                   }).join(', ')}
                 </p>
-              )}
-            </div>
-          ) : field.hasSuboptions ? (
-            <div className="space-y-3">
-              <select
-                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
-                value={values[field.label] || ''}
-                onChange={e => set(field.label, e.target.value)}
-              >
-                <option value="">Select {field.label}…</option>
-                {field.options?.map((opt, idx) => {
-                  const label = typeof opt === 'string' ? opt : opt.label
-                  return <option key={idx} value={label}>{label}</option>
-                })}
-              </select>
-              
-              {values[field.label] && getSuboptionsForCategory(values[field.label], field).length > 0 && (
-                <div>
-                  <label className={`label dark:text-gray-300 text-sm ${field.suboptionsRequired ? '' : 'opacity-75'}`}>
-                    Subcategory {field.suboptionsRequired && <span className="text-red-400">*</span>}
-                  </label>
-                  <select
-                    className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[`${field.label}_sub`] ? 'border-red-400' : ''}`}
-                    value={values[`${field.label}_sub`] || ''}
-                    onChange={e => set(`${field.label}_sub`, e.target.value)}
-                  >
-                    <option value="">Choose a subcategory…</option>
-                    {getSuboptionsForCategory(values[field.label], field).map((sub, idx) => (
-                      <option key={idx} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
               )}
             </div>
           ) : (
