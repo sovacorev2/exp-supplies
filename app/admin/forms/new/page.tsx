@@ -13,6 +13,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'tel',      label: 'Phone number' },
   { value: 'number',   label: 'Number' },
   { value: 'select',   label: 'Dropdown' },
+  { value: 'multiselect', label: 'Multiple choice' },
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Checkbox' },
 ]
@@ -32,23 +33,57 @@ export default function NewFormPage() {
   const [newRequired, setNewRequired]     = useState(true)
   const [newPlaceholder, setNewPlaceholder] = useState('')
   const [newOptions, setNewOptions]       = useState('')
+  const [newHasSuboptions, setNewHasSuboptions] = useState(false)
+  const [newSuboptionsMap, setNewSuboptionsMap] = useState<Record<string, string>>({})
+  const [currentSection, setCurrentSection] = useState('')
+  const [newSectionName, setNewSectionName] = useState('')
+
+  function addSection() {
+    if (!newSectionName.trim()) return
+    const sectionField: FormField = {
+      id: uid(),
+      label: newSectionName.trim(),
+      type: 'text',
+      required: false,
+      section: 'SECTION_HEADER',
+    }
+    setFields(prev => [...prev, sectionField])
+    setCurrentSection(newSectionName.trim())
+    setNewSectionName('')
+  }
 
   function addField() {
     if (!newLabel.trim()) return
+    let options: (string | { label: string; suboptions?: string[] })[] | undefined
+    
+    if (newType === 'select' || newType === 'multiselect') {
+      const baseOptions = newOptions.split('\n').map(s => s.trim()).filter(Boolean)
+      if (newHasSuboptions) {
+        options = baseOptions.map(opt => ({
+          label: opt,
+          suboptions: (newSuboptionsMap[opt] || '').split('\n').map(s => s.trim()).filter(Boolean)
+        }))
+      } else {
+        options = baseOptions
+      }
+    }
+    
     const field: FormField = {
       id:          uid(),
       label:       newLabel.trim(),
       type:        newType,
       required:    newRequired,
       placeholder: newPlaceholder || undefined,
-      options:     newType === 'select'
-                     ? newOptions.split('\n').map(s => s.trim()).filter(Boolean)
-                     : undefined,
+      options:     options,
+      hasSuboptions: newHasSuboptions || undefined,
+      section: currentSection || undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
     setNewPlaceholder('')
     setNewOptions('')
+    setNewHasSuboptions(false)
+    setNewSuboptionsMap({})
   }
 
   function removeField(id: string) {
@@ -134,25 +169,40 @@ export default function NewFormPage() {
             </div>
             <div className="p-4 md:p-6 space-y-3">
               {fields.map((f: FormField) => (
-                <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
-                  <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                      {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {FIELD_TYPES.find(t => t.value === f.type)?.label}
-                      {f.placeholder && ` • "${f.placeholder}"`}
-                    </p>
+                f.section === 'SECTION_HEADER' ? (
+                  <div key={f.id} className="mt-6 mb-3 pt-4 border-t-2 border-brand-200 dark:border-brand-800 group">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{f.label}</h3>
+                      <button 
+                        onClick={() => removeField(f.id)} 
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400"
+                        title="Delete section"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => removeField(f.id)} 
-                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
-                    title="Delete field"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                ) : (
+                  <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
+                    <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                        {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {FIELD_TYPES.find(t => t.value === f.type)?.label}
+                        {f.placeholder && ` • "${f.placeholder}"`}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => removeField(f.id)} 
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
+                      title="Delete field"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )
               ))}
               {fields.length === 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet - add one below</p>
@@ -160,9 +210,18 @@ export default function NewFormPage() {
             </div>
           </div>
 
-          {/* Add Field Form */}
+          {/* Add Section or Field */}
           <div className="card p-5 md:p-6 space-y-5 bg-gradient-to-b from-brand-50 dark:from-brand-900/20 to-white dark:to-gray-800">
-            <div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { const name = prompt('Section name:'); if (name) { setNewSectionName(name); addSection(); } }}
+                className="flex-1 btn bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm font-semibold py-2"
+              >
+                + Add Section
+              </button>
+            </div>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-5">
               <h3 className="font-bold text-base text-gray-900 dark:text-white">Add a new field</h3>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Fill in the details below and click Add field</p>
             </div>
@@ -177,16 +236,46 @@ export default function NewFormPage() {
               <select className="input" value={newType} onChange={e => setNewType(e.target.value as FieldType)}>
                 {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
-              {newType === 'select' && (
-                <p className="text-xs text-brand-700 dark:text-brand-300 mt-3 p-3 bg-brand-50 dark:bg-brand-900/30 rounded-lg font-medium">Dropdown list - Great for categories, options, or choices</p>
+              {(newType === 'select' || newType === 'multiselect') && (
+                <p className="text-xs text-brand-700 dark:text-brand-300 mt-3 p-3 bg-brand-50 dark:bg-brand-900/30 rounded-lg font-medium">
+                  {newType === 'select' ? 'Dropdown - Select one option' : 'Multiple choice - Allow selecting multiple options'}
+                </p>
               )}
             </div>
             
-            {newType === 'select' && (
-              <div>
-                <label className="label">Dropdown options (one per line)</label>
-                <textarea className="input" rows={5} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Option 1\nOption 2\nOption 3"} />
-              </div>
+            {(newType === 'select' || newType === 'multiselect') && (
+              <>
+                <div>
+                  <label className="label">Dropdown options (one per line)</label>
+                  <textarea className="input" rows={5} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Option 1\nOption 2\nOption 3"} />
+                </div>
+                
+                <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer transition-colors">
+                  <input type="checkbox" checked={newHasSuboptions} onChange={e => setNewHasSuboptions(e.target.checked)} className="w-5 h-5 rounded" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Add subcategories for each option</span>
+                </label>
+
+                {newHasSuboptions && (
+                  <div className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-lg border border-brand-200 dark:border-brand-800 space-y-3">
+                    <p className="text-xs text-brand-700 dark:text-brand-300 font-medium">For each option, define its subcategories:</p>
+                    {newOptions.split('\n').map((opt, idx) => {
+                      const trimmed = opt.trim()
+                      return trimmed ? (
+                        <div key={idx}>
+                          <label className="label text-xs">{trimmed} - subcategories</label>
+                          <textarea 
+                            className="input text-xs py-2" 
+                            rows={3}
+                            value={newSuboptionsMap[trimmed] || ''} 
+                            onChange={e => setNewSuboptionsMap(prev => ({ ...prev, [trimmed]: e.target.value }))} 
+                            placeholder="Subcategory 1&#10;Subcategory 2&#10;Subcategory 3"
+                          />
+                        </div>
+                      ) : null
+                    })}
+                  </div>
+                )}
+              </>
             )}
             {newType !== 'select' && newType !== 'checkbox' && (
               <div>
