@@ -60,9 +60,11 @@ export default function SupplierForm({ form }: { form: Form }) {
       let submissionData = { ...values }
       
       // Upload files to Blob and replace filenames with URLs
+      console.log('[v0] Files to upload:', files)
       for (const [fieldName, file] of Object.entries(files)) {
         if (file) {
           try {
+            console.log(`[v0] Uploading file for ${fieldName}:`, file.name)
             const formData = new FormData()
             formData.append('file', file)
             formData.append('submissionId', submissionId)
@@ -73,10 +75,14 @@ export default function SupplierForm({ form }: { form: Form }) {
             })
 
             if (!uploadRes.ok) {
-              throw new Error('Upload failed')
+              const errorText = await uploadRes.text()
+              console.error(`[v0] Upload failed (${uploadRes.status}):`, errorText)
+              throw new Error(`Upload failed: ${uploadRes.status}`)
             }
 
-            const { url } = await uploadRes.json()
+            const responseData = await uploadRes.json()
+            console.log(`[v0] Upload successful for ${fieldName}:`, responseData)
+            const { url } = responseData
             submissionData[fieldName] = url
           } catch (error) {
             console.error(`[v0] Failed to upload file for ${fieldName}:`, error)
@@ -86,6 +92,7 @@ export default function SupplierForm({ form }: { form: Form }) {
           }
         }
       }
+      console.log('[v0] Final submission data:', submissionData)
       
       await createSubmission(form.id, submissionData)
       setSubmitted(true)
