@@ -17,6 +17,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'tel',      label: 'Phone number' },
   { value: 'number',   label: 'Number' },
   { value: 'select',   label: 'Dropdown' },
+  { value: 'multiselect', label: 'Multiple choice' },
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Checkbox' },
 ]
@@ -344,7 +345,7 @@ export default function EditFormPage() {
                 ))}
               </select>
             </div>
-            {newType === 'select' && (
+            {(newType === 'select' || newType === 'multiselect') && (
               <div>
                 <label className="label">Options (one per line)</label>
                 <textarea 
