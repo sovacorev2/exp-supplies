@@ -20,6 +20,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'multiselect', label: 'Multiple choice' },
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Checkbox' },
+  { value: 'upload',   label: 'File upload' },
 ]
 
 function uid() { return Math.random().toString(36).slice(2, 8) }
@@ -46,9 +47,11 @@ export default function EditFormPage() {
   const [newPlaceholder, setNewPlaceholder] = useState('')
   const [newOptions, setNewOptions] = useState('')
   const [newHasSuboptions, setNewHasSuboptions] = useState(false)
+  const [newSuboptionsRequired, setNewSuboptionsRequired] = useState(false)
   const [newSuboptionsMap, setNewSuboptionsMap] = useState<Record<string, string>>({})
   const [newDependsOnField, setNewDependsOnField] = useState('')
   const [newDependsOnValue, setNewDependsOnValue] = useState('')
+  const [newAcceptedFileTypes, setNewAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
 
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
@@ -103,19 +106,23 @@ export default function EditFormPage() {
       placeholder: newPlaceholder || undefined,
       options: options,
       hasSuboptions: newHasSuboptions || undefined,
+      suboptionsRequired: newHasSuboptions ? newSuboptionsRequired : undefined,
       dependsOn: newDependsOnField && newDependsOnValue ? {
         fieldLabel: newDependsOnField,
         triggerValue: newDependsOnValue
       } : undefined,
+      acceptedFileTypes: newType === 'upload' ? newAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
     setNewPlaceholder('')
     setNewOptions('')
     setNewHasSuboptions(false)
+    setNewSuboptionsRequired(false)
     setNewSuboptionsMap({})
     setNewDependsOnField('')
     setNewDependsOnValue('')
+    setNewAcceptedFileTypes('image/jpeg,image/png,image/webp')
   }
 
   function removeField(id: string) {
@@ -389,6 +396,13 @@ export default function EditFormPage() {
                 </label>
 
                 {newHasSuboptions && (
+                  <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer transition-colors ml-4">
+                    <input type="checkbox" checked={newSuboptionsRequired} onChange={e => setNewSuboptionsRequired(e.target.checked)} className="w-5 h-5 rounded" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Subcategory is required</span>
+                  </label>
+                )}
+
+                {newHasSuboptions && (
                   <div className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-lg border border-brand-200 dark:border-brand-800 space-y-3">
                     <p className="text-xs text-brand-700 dark:text-brand-300 font-medium">For each option, define its subcategories:</p>
                     {newOptions.split('\n').map((opt, idx) => {
@@ -463,6 +477,26 @@ export default function EditFormPage() {
                 </div>
               )}
             </div>
+
+            {newType === 'upload' && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800 space-y-3">
+                <label className="label text-sm">Allowed file types</label>
+                <select 
+                  multiple 
+                  value={newAcceptedFileTypes.split(',')} 
+                  onChange={e => setNewAcceptedFileTypes(Array.from(e.target.selectedOptions, o => o.value).join(','))}
+                  className="input text-sm"
+                >
+                  <option value="image/jpeg">JPEG Images</option>
+                  <option value="image/png">PNG Images</option>
+                  <option value="image/webp">WebP Images</option>
+                  <option value="image/gif">GIF Images</option>
+                  <option value="application/pdf">PDF Files</option>
+                  <option value="application/msword">Word Documents</option>
+                </select>
+                <p className="text-xs text-purple-600 dark:text-purple-400">Hold Ctrl/Cmd to select multiple types</p>
+              </div>
+            )}
 
             <button 
               onClick={addField} 

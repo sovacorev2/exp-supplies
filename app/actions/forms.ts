@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { forms, submissions } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 
-export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox'
+export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
 
 export interface DropdownOption {
   label: string
@@ -19,11 +19,13 @@ export interface FormField {
   placeholder?: string
   options?: (string | DropdownOption)[]
   hasSuboptions?: boolean
+  suboptionsRequired?: boolean
   section?: string
   dependsOn?: {
     fieldLabel: string
     triggerValue: string
   }
+  acceptedFileTypes?: string[]
 }
 
 export interface Form {
