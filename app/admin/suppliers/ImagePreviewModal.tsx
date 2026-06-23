@@ -13,6 +13,10 @@ export function ImagePreviewModal({ imageUrl, fileName, onClose }: ImagePreviewM
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  // Use proxy for private Blob URLs, direct URL for filenames
+  const isBlobUrl = imageUrl.startsWith('https://')
+  const displayUrl = isBlobUrl ? `/api/image-proxy?url=${encodeURIComponent(imageUrl)}` : imageUrl
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto flex flex-col">
@@ -22,16 +26,16 @@ export function ImagePreviewModal({ imageUrl, fileName, onClose }: ImagePreviewM
             <h3 className="text-lg font-semibold text-white truncate">{fileName}</h3>
           </div>
           <div className="flex items-center gap-2 ml-4">
-            <a
-              href={imageUrl}
-              download={fileName}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-300 hover:text-white"
-              title="Download image"
-            >
-              <Download size={20} />
-            </a>
+            {isBlobUrl && (
+              <a
+                href={displayUrl}
+                download={fileName}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-300 hover:text-white"
+                title="Download image"
+              >
+                <Download size={20} />
+              </a>
+            )}
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-300 hover:text-white"
@@ -46,7 +50,7 @@ export function ImagePreviewModal({ imageUrl, fileName, onClose }: ImagePreviewM
           {error ? (
             <div className="text-center">
               <p className="text-red-400 mb-2">Failed to load image</p>
-              <p className="text-sm text-gray-400">{imageUrl}</p>
+              <p className="text-sm text-gray-400">{fileName}</p>
             </div>
           ) : (
             <>
@@ -56,7 +60,7 @@ export function ImagePreviewModal({ imageUrl, fileName, onClose }: ImagePreviewM
                 </div>
               )}
               <img
-                src={imageUrl}
+                src={displayUrl}
                 alt={fileName}
                 onLoad={() => setIsLoading(false)}
                 onError={() => {
