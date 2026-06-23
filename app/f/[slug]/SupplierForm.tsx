@@ -55,19 +55,19 @@ export default function SupplierForm({ form }: { form: Form }) {
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSubmitting(true)
+    
     try {
-      const submissionId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
       let submissionData = { ...values }
       
       // Upload files to Blob and replace filenames with URLs
-      console.log('[v0] Files to upload:', files)
-      for (const [fieldName, file] of Object.entries(files)) {
-        if (file) {
+      if (Object.keys(files).length > 0) {
+        const uploadPromises = Object.entries(files).map(async ([fieldName, file]) => {
+          if (!file) return
+          
           try {
-            console.log(`[v0] Uploading file for ${fieldName}:`, file.name)
+            console.log(`[v0] Uploading file for ${fieldName}:`, file.name, file.size, file.type)
             const formData = new FormData()
             formData.append('file', file)
-            formData.append('submissionId', submissionId)
             
             const uploadRes = await fetch('/api/upload', {
               method: 'POST',
@@ -81,25 +81,23 @@ export default function SupplierForm({ form }: { form: Form }) {
             }
 
             const responseData = await uploadRes.json()
-            console.log(`[v0] Upload successful for ${fieldName}:`, responseData)
-            const { url } = responseData
-            submissionData[fieldName] = url
+            console.log(`[v0] Upload successful for ${fieldName}:`, responseData.url)
+            submissionData[fieldName] = responseData.url
           } catch (error) {
             console.error(`[v0] Failed to upload file for ${fieldName}:`, error)
-            setErrors(prev => ({ ...prev, [fieldName]: 'Failed to upload file' }))
-            setSubmitting(false)
-            return
+            throw new Error(`Failed to upload ${fieldName}: ${String(error)}`)
           }
-        }
+        })
+        
+        await Promise.all(uploadPromises)
       }
-      console.log('[v0] Final submission data:', submissionData)
       
+      console.log('[v0] Final submission data:', submissionData)
       await createSubmission(form.id, submissionData)
       setSubmitted(true)
-      router.refresh()
     } catch (error) {
       console.error('[v0] Submit error:', error)
-      alert('Something went wrong. Please try again.')
+      setErrors({ submit: String(error) })
     } finally {
       setSubmitting(false)
     }
@@ -252,8 +250,13 @@ export default function SupplierForm({ form }: { form: Form }) {
                 className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-900 dark:file:text-brand-300 hover:file:bg-brand-200 ${errors[field.label] ? 'border-red-400' : ''}`}
                 onChange={e => {
                   const file = e.target.files?.[0]
+                  console.log('[v0] File selected:', file?.name, 'for field:', field.label)
                   if (file) {
-                    setFiles(prev => ({ ...prev, [field.label]: file }))
+                    setFiles(prev => {
+                      const updated = { ...prev, [field.label]: file }
+                      console.log('[v0] Files state updated:', updated)
+                      return updated
+                    })
                     set(field.label, file.name)
                   }
                 }}
@@ -293,6 +296,12 @@ export default function SupplierForm({ form }: { form: Form }) {
         </div>
         ) : null
       })}
+
+      {errors.submit && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-700 dark:text-red-400">{errors.submit}</p>
+        </div>
+      )}
 
       <button
         type="submit"
