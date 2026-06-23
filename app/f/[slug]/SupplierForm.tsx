@@ -4,9 +4,12 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function SupplierForm({ form }: { form: Form }) {
+  const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>({})
+  const [files, setFiles] = useState<Record<string, File>>({})
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -53,9 +56,42 @@ export default function SupplierForm({ form }: { form: Form }) {
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSubmitting(true)
     try {
-      await createSubmission(form.id, values)
+      const submissionId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      let submissionData = { ...values }
+      
+      // Upload files to Blob and replace filenames with URLs
+      for (const [fieldName, file] of Object.entries(files)) {
+        if (file) {
+          try {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('submissionId', submissionId)
+            
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            })
+
+            if (!uploadRes.ok) {
+              throw new Error('Upload failed')
+            }
+
+            const { url } = await uploadRes.json()
+            submissionData[fieldName] = url
+          } catch (error) {
+            console.error(`[v0] Failed to upload file for ${fieldName}:`, error)
+            setErrors(prev => ({ ...prev, [fieldName]: 'Failed to upload file' }))
+            setSubmitting(false)
+            return
+          }
+        }
+      }
+      
+      await createSubmission(form.id, submissionData)
       setSubmitted(true)
-    } catch {
+      router.refresh()
+    } catch (error) {
+      console.error('[v0] Submit error:', error)
       alert('Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
@@ -205,9 +241,19 @@ export default function SupplierForm({ form }: { form: Form }) {
               <input
                 type="file"
                 accept={field.acceptedFileTypes?.join(',')}
+                required={field.required}
                 className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-900 dark:file:text-brand-300 hover:file:bg-brand-200 ${errors[field.label] ? 'border-red-400' : ''}`}
-                onChange={e => set(field.label, e.target.files?.[0]?.name || '')}
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    setFiles(prev => ({ ...prev, [field.label]: file }))
+                    set(field.label, file.name)
+                  }
+                }}
               />
+              {files[field.label] && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ {files[field.label].name}</p>
+              )}
               {field.acceptedFileTypes && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Allowed: {field.acceptedFileTypes.map(t => {
