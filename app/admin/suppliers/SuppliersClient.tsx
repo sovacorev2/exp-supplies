@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
-import { Search, Download, RefreshCw } from 'lucide-react'
+import { Search, Download, RefreshCw, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default function SuppliersClient({
@@ -20,6 +20,10 @@ export default function SuppliersClient({
   const [formId, setFormId]     = useState(defaultFormId ?? '')
   const [refreshing, setRefreshing] = useState(false)
   const [selected, setSelected] = useState<Submission | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -59,6 +63,40 @@ export default function SuppliersClient({
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
     a.download = `responses-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`
     a.click()
+  }
+
+  async function handleDeleteResponse() {
+    if (!selected || !deletePassword.trim()) {
+      setDeleteError('Please enter the admin password')
+      return
+    }
+
+    setDeleting(true)
+    setDeleteError('')
+    
+    try {
+      const response = await fetch(`/api/submissions/${selected.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        setDeleteError(error.error || 'Failed to delete response')
+        return
+      }
+
+      setShowDeleteModal(false)
+      setDeletePassword('')
+      setSelected(null)
+      router.refresh()
+    } catch (error) {
+      setDeleteError('Error deleting response')
+      console.error('[v0] Delete error:', error)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -194,18 +232,98 @@ export default function SuppliersClient({
             </div>
 
             <div className="p-4 md:p-6 flex-1 space-y-4 overflow-y-auto">
-              {Object.entries(selected.data).map(([key, value]: [string, string]) => (
-                <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
-                  <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 font-bold mb-3">{key}</p>
-                  <p className="text-sm md:text-base text-gray-900 dark:text-gray-100 leading-relaxed break-words font-medium">{value || '—'}</p>
-                </div>
-              ))}
+              {Object.entries(selected.data).map(([key, value]: [string, string]) => {
+                const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product')
+                const isImage = isImageField && typeof value === 'string' && (value.endsWith('.jpg') || value.endsWith('.jpeg') || value.endsWith('.png') || value.endsWith('.gif') || value.endsWith('.webp'))
+                
+                return (
+                  <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
+                    <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 font-bold mb-3">{key}</p>
+                    {isImage ? (
+                      <div className="space-y-2">
+                        <img 
+                          src={`/api/submissions/${selected.id}/image?filename=${encodeURIComponent(value)}`}
+                          alt={key}
+                          className="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-600 max-h-64 object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
+                        <p className="text-xs text-gray-600 dark:text-gray-400 break-words">{value}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm md:text-base text-gray-900 dark:text-gray-100 leading-relaxed break-words font-medium">{value || '—'}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
-            <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+            <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 space-y-3">
+              <button 
+                onClick={() => {
+                  setShowDeleteModal(true)
+                  setDeletePassword('')
+                  setDeleteError('')
+                }}
+                className="w-full btn bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-2 px-4 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+              >
+                <Trash2 size={16} />
+                Delete Response
+              </button>
               <p className="text-xs text-gray-400 dark:text-gray-500 text-center truncate">
                 Response ID: {selected.id.slice(0, 16)}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Response</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  This action cannot be undone. Enter the admin password to confirm deletion.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="label text-sm">Admin Password</label>
+                <input
+                  type="password"
+                  className="input w-full"
+                  placeholder="Enter admin password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleDeleteResponse()}
+                  autoFocus
+                />
+                {deleteError && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-2">{deleteError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setDeletePassword('')
+                    setDeleteError('')
+                  }}
+                  className="flex-1 btn bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold py-2 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteResponse}
+                  disabled={deleting}
+                  className="flex-1 btn bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white font-semibold py-2 rounded-lg transition-colors"
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         )}
