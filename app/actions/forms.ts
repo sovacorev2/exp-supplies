@@ -20,6 +20,10 @@ export interface FormField {
   options?: (string | DropdownOption)[]
   hasSuboptions?: boolean
   section?: string
+  dependsOn?: {
+    fieldLabel: string
+    triggerValue: string
+  }
 }
 
 export interface Form {
