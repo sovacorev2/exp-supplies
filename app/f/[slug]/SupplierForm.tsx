@@ -16,13 +16,20 @@ export default function SupplierForm({ form }: { form: Form }) {
     if (errors[id]) setErrors(prev => { const e = { ...prev }; delete e[id]; return e })
   }
 
+  function isFieldVisible(field: typeof form.fields[0]): boolean {
+    if (!field.dependsOn) return true
+    const dependentFieldValue = values[field.dependsOn.fieldLabel]
+    return dependentFieldValue === field.dependsOn.triggerValue
+  }
+
   function validate() {
     const errs: Record<string, string> = {}
     form.fields.forEach(f => {
-      if (f.required && !values[f.label]?.trim()) {
+      const isVisible = isFieldVisible(f)
+      if (isVisible && f.required && !values[f.label]?.trim()) {
         errs[f.label] = 'This field is required'
       }
-      if (f.type === 'email' && values[f.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[f.label])) {
+      if (isVisible && f.type === 'email' && values[f.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[f.label])) {
         errs[f.label] = 'Please enter a valid email'
       }
     })
@@ -85,7 +92,9 @@ export default function SupplierForm({ form }: { form: Form }) {
         )}
       </div>
 
-      {form.fields.map(field => (
+      {form.fields.map(field => {
+        const isVisible = isFieldVisible(field)
+        return isVisible ? (
         <div key={field.id}>
           <label className="label dark:text-gray-300">
             {field.label}
@@ -151,7 +160,8 @@ export default function SupplierForm({ form }: { form: Form }) {
             <p className="text-xs text-red-500 dark:text-red-400 mt-1">{errors[field.label]}</p>
           )}
         </div>
-      ))}
+        ) : null
+      })}
 
       <button
         type="submit"

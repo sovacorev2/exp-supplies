@@ -37,6 +37,8 @@ export default function NewFormPage() {
   const [newSuboptionsMap, setNewSuboptionsMap] = useState<Record<string, string>>({})
   const [currentSection, setCurrentSection] = useState('')
   const [newSectionName, setNewSectionName] = useState('')
+  const [newDependsOnField, setNewDependsOnField] = useState('')
+  const [newDependsOnValue, setNewDependsOnValue] = useState('')
 
   function addSection() {
     if (!newSectionName.trim()) return
@@ -77,6 +79,10 @@ export default function NewFormPage() {
       options:     options,
       hasSuboptions: newHasSuboptions || undefined,
       section: currentSection || undefined,
+      dependsOn: newDependsOnField && newDependsOnValue ? {
+        fieldLabel: newDependsOnField,
+        triggerValue: newDependsOnValue
+      } : undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
@@ -84,6 +90,8 @@ export default function NewFormPage() {
     setNewOptions('')
     setNewHasSuboptions(false)
     setNewSuboptionsMap({})
+    setNewDependsOnField('')
+    setNewDependsOnValue('')
   }
 
   function removeField(id: string) {
@@ -287,6 +295,39 @@ export default function NewFormPage() {
               <input type="checkbox" id="req" checked={newRequired} onChange={e => setNewRequired(e.target.checked)} className="w-5 h-5 rounded" />
               <span className="text-base font-medium text-gray-700 dark:text-gray-300">Required field</span>
             </label>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={!!newDependsOnField} onChange={e => { if (!e.target.checked) { setNewDependsOnField(''); setNewDependsOnValue(''); } }} className="w-4 h-4 rounded" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Show this field only when...</span>
+              </label>
+              {newDependsOnField !== undefined && (
+                <div className="space-y-3 pl-7">
+                  <div>
+                    <label className="label text-xs">When this field equals:</label>
+                    <select className="input text-sm" value={newDependsOnField} onChange={e => setNewDependsOnField(e.target.value)}>
+                      <option value="">-- Select a field --</option>
+                      {fields.filter(f => f.type === 'select' && f.section !== 'SECTION_HEADER').map(f => (
+                        <option key={f.id} value={f.label}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {newDependsOnField && (
+                    <div>
+                      <label className="label text-xs">Trigger value:</label>
+                      <select className="input text-sm" value={newDependsOnValue} onChange={e => setNewDependsOnValue(e.target.value)}>
+                        <option value="">-- Select value --</option>
+                        {fields.find(f => f.label === newDependsOnField)?.options?.map((opt, idx) => {
+                          const label = typeof opt === 'string' ? opt : opt.label
+                          return <option key={idx} value={label}>{label}</option>
+                        })}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button onClick={addField} disabled={!newLabel.trim()} className="btn btn-primary w-full justify-center py-3 text-base font-bold">
               <Plus size={18} /> Add field
             </button>

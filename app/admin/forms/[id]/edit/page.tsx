@@ -47,6 +47,8 @@ export default function EditFormPage() {
   const [newOptions, setNewOptions] = useState('')
   const [newHasSuboptions, setNewHasSuboptions] = useState(false)
   const [newSuboptionsMap, setNewSuboptionsMap] = useState<Record<string, string>>({})
+  const [newDependsOnField, setNewDependsOnField] = useState('')
+  const [newDependsOnValue, setNewDependsOnValue] = useState('')
 
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
@@ -101,6 +103,10 @@ export default function EditFormPage() {
       placeholder: newPlaceholder || undefined,
       options: options,
       hasSuboptions: newHasSuboptions || undefined,
+      dependsOn: newDependsOnField && newDependsOnValue ? {
+        fieldLabel: newDependsOnField,
+        triggerValue: newDependsOnValue
+      } : undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
@@ -108,6 +114,8 @@ export default function EditFormPage() {
     setNewOptions('')
     setNewHasSuboptions(false)
     setNewSuboptionsMap({})
+    setNewDependsOnField('')
+    setNewDependsOnValue('')
   }
 
   function removeField(id: string) {
@@ -423,6 +431,39 @@ export default function EditFormPage() {
               />
               <label htmlFor="req" className="text-sm text-gray-600">Required field</label>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={!!newDependsOnField} onChange={e => { if (!e.target.checked) { setNewDependsOnField(''); setNewDependsOnValue(''); } }} className="w-4 h-4 rounded" />
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Show only when...</span>
+              </label>
+              {newDependsOnField !== undefined && (
+                <div className="space-y-2 pl-6">
+                  <div>
+                    <label className="label text-xs">When field equals:</label>
+                    <select className="input text-xs" value={newDependsOnField} onChange={e => setNewDependsOnField(e.target.value)}>
+                      <option value="">-- Select field --</option>
+                      {fields.filter(f => f.type === 'select' && f.section !== 'SECTION_HEADER').map(f => (
+                        <option key={f.id} value={f.label}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {newDependsOnField && (
+                    <div>
+                      <label className="label text-xs">Trigger value:</label>
+                      <select className="input text-xs" value={newDependsOnValue} onChange={e => setNewDependsOnValue(e.target.value)}>
+                        <option value="">-- Select value --</option>
+                        {fields.find(f => f.label === newDependsOnField)?.options?.map((opt, idx) => {
+                          const label = typeof opt === 'string' ? opt : opt.label
+                          return <option key={idx} value={label}>{label}</option>
+                        })}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button 
               onClick={addField} 
               disabled={!newLabel.trim()} 
