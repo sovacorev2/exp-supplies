@@ -107,7 +107,25 @@ export default function SupplierForm({ form }: { form: Form }) {
               onChange={e => set(field.label, e.target.value)}
             >
               <option value="">Select an option…</option>
-              {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              {field.options?.map((opt, idx) => {
+                const label = typeof opt === 'string' ? opt : opt.label
+                return <option key={idx} value={label}>{label}</option>
+              })}
+            </select>
+          ) : field.type === 'multiselect' ? (
+            <select
+              multiple
+              className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
+              value={(values[field.label] || '').split(',').filter(Boolean)}
+              onChange={e => {
+                const selected = Array.from(e.target.selectedOptions, option => option.value)
+                set(field.label, selected.join(','))
+              }}
+            >
+              {field.options?.map((opt, idx) => {
+                const label = typeof opt === 'string' ? opt : opt.label
+                return <option key={idx} value={label}>{label}</option>
+              })}
             </select>
           ) : field.type === 'checkbox' ? (
             <label className="flex items-center gap-2 cursor-pointer">

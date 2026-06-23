@@ -6,13 +6,19 @@ import { eq, desc } from 'drizzle-orm'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox'
 
+export interface DropdownOption {
+  label: string
+  suboptions?: string[]
+}
+
 export interface FormField {
   id: string
   label: string
   type: FieldType
   required: boolean
   placeholder?: string
-  options?: string[]
+  options?: (string | DropdownOption)[]
+  hasSuboptions?: boolean
   section?: string
 }
 

@@ -45,6 +45,8 @@ export default function EditFormPage() {
   const [newRequired, setNewRequired] = useState(true)
   const [newPlaceholder, setNewPlaceholder] = useState('')
   const [newOptions, setNewOptions] = useState('')
+  const [newHasSuboptions, setNewHasSuboptions] = useState(false)
+  const [newSuboptionsMap, setNewSuboptionsMap] = useState<Record<string, string>>({})
 
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
@@ -77,20 +79,35 @@ export default function EditFormPage() {
 
   function addField() {
     if (!newLabel.trim()) return
+    let options: (string | { label: string; suboptions?: string[] })[] | undefined
+    
+    if (newType === 'select' || newType === 'multiselect') {
+      const baseOptions = newOptions.split('\n').map(s => s.trim()).filter(Boolean)
+      if (newHasSuboptions) {
+        options = baseOptions.map(opt => ({
+          label: opt,
+          suboptions: (newSuboptionsMap[opt] || '').split('\n').map(s => s.trim()).filter(Boolean)
+        }))
+      } else {
+        options = baseOptions
+      }
+    }
+    
     const field: FormField = {
       id: uid(),
       label: newLabel.trim(),
       type: newType,
       required: newRequired,
       placeholder: newPlaceholder || undefined,
-      options: newType === 'select'
-        ? newOptions.split('\n').map(s => s.trim()).filter(Boolean)
-        : undefined,
+      options: options,
+      hasSuboptions: newHasSuboptions || undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
     setNewPlaceholder('')
     setNewOptions('')
+    setNewHasSuboptions(false)
+    setNewSuboptionsMap({})
   }
 
   function removeField(id: string) {
@@ -346,16 +363,44 @@ export default function EditFormPage() {
               </select>
             </div>
             {(newType === 'select' || newType === 'multiselect') && (
-              <div>
-                <label className="label">Options (one per line)</label>
-                <textarea 
-                  className="input" 
-                  rows={4} 
-                  value={newOptions} 
-                  onChange={e => setNewOptions(e.target.value)} 
-                  placeholder={"Option A\nOption B\nOption C"}
-                />
-              </div>
+              <>
+                <div>
+                  <label className="label">Options (one per line)</label>
+                  <textarea 
+                    className="input" 
+                    rows={4} 
+                    value={newOptions} 
+                    onChange={e => setNewOptions(e.target.value)} 
+                    placeholder={"Option A\nOption B\nOption C"}
+                  />
+                </div>
+                
+                <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer transition-colors">
+                  <input type="checkbox" checked={newHasSuboptions} onChange={e => setNewHasSuboptions(e.target.checked)} className="w-5 h-5 rounded" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Add subcategories for each option</span>
+                </label>
+
+                {newHasSuboptions && (
+                  <div className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-lg border border-brand-200 dark:border-brand-800 space-y-3">
+                    <p className="text-xs text-brand-700 dark:text-brand-300 font-medium">For each option, define its subcategories:</p>
+                    {newOptions.split('\n').map((opt, idx) => {
+                      const trimmed = opt.trim()
+                      return trimmed ? (
+                        <div key={idx}>
+                          <label className="label text-xs">{trimmed} - subcategories</label>
+                          <textarea 
+                            className="input text-xs py-2" 
+                            rows={3}
+                            value={newSuboptionsMap[trimmed] || ''} 
+                            onChange={e => setNewSuboptionsMap(prev => ({ ...prev, [trimmed]: e.target.value }))} 
+                            placeholder="Subcategory 1&#10;Subcategory 2&#10;Subcategory 3"
+                          />
+                        </div>
+                      ) : null
+                    })}
+                  </div>
+                )}
+              </>
             )}
             {newType !== 'select' && newType !== 'checkbox' && (
               <div>
