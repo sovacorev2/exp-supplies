@@ -3,8 +3,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
-import { Search, Download, RefreshCw, Trash2 } from 'lucide-react'
+import { Search, Download, RefreshCw, Trash2, Eye } from 'lucide-react'
 import { format } from 'date-fns'
+import { ImagePreviewModal } from './ImagePreviewModal'
 
 export default function SuppliersClient({
   submissions,
@@ -24,6 +25,7 @@ export default function SuppliersClient({
   const [deletePassword, setDeletePassword] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null)
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -233,22 +235,39 @@ export default function SuppliersClient({
 
             <div className="p-4 md:p-6 flex-1 space-y-4 overflow-y-auto">
               {Object.entries(selected.data).map(([key, value]: [string, string]) => {
-                const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product')
+                const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product') || key.toLowerCase().includes('supply')
                 const isImageUrl = isImageField && typeof value === 'string' && value.startsWith('https://')
+                const isImageFileName = isImageField && typeof value === 'string' && /\.(jpg|jpeg|png|gif|webp)$/i.test(value)
                 
                 return (
                   <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
                     <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 font-bold mb-3">{key}</p>
                     {isImageUrl ? (
-                      <div className="space-y-2">
+                      <button
+                        onClick={() => setPreviewImage({ url: value, name: key })}
+                        className="group relative block w-full text-left rounded-lg overflow-hidden hover:ring-2 hover:ring-brand-500 transition-all"
+                      >
                         <img 
                           src={value}
                           alt={key}
-                          className="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-600 max-h-64 object-cover"
+                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-600 max-h-64 object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none'
                           }}
                         />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center rounded-lg transition-all">
+                          <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
+                        </div>
+                      </button>
+                    ) : isImageFileName ? (
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => setPreviewImage({ url: value, name: String(value) })}
+                          className="w-full px-4 py-3 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/40 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-800 font-medium text-sm flex items-center gap-2 transition-colors"
+                        >
+                          <Eye size={16} />
+                          View Image: {value}
+                        </button>
                       </div>
                     ) : (
                       <p className="text-sm md:text-base text-gray-900 dark:text-gray-100 leading-relaxed break-words font-medium">{value || '—'}</p>
@@ -275,6 +294,15 @@ export default function SuppliersClient({
               </p>
             </div>
           </div>
+        )}
+
+        {/* Image Preview Modal */}
+        {previewImage && (
+          <ImagePreviewModal 
+            imageUrl={previewImage.url}
+            fileName={previewImage.name}
+            onClose={() => setPreviewImage(null)}
+          />
         )}
 
         {/* Delete Confirmation Modal */}
