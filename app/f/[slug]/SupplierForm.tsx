@@ -22,10 +22,21 @@ export default function SupplierForm({ form }: { form: Form }) {
     return dependentFieldValue === field.dependsOn.triggerValue
   }
 
+  function getSuboptionsForCategory(categoryLabel: string, field: typeof form.fields[0]): string[] {
+    if (!field.hasSuboptions || !field.options) return []
+    const selectedOption = field.options.find(opt => (typeof opt === 'string' ? opt : opt.label) === categoryLabel)
+    if (!selectedOption || typeof selectedOption === 'string') return []
+    return selectedOption.suboptions || []
+  }
+
   function validate() {
     const errs: Record<string, string> = {}
     form.fields.forEach(f => {
       const isVisible = isFieldVisible(f)
+      
+      // Skip section headers
+      if (f.section === 'SECTION_HEADER') return
+      
       if (isVisible && f.required && !values[f.label]?.trim()) {
         errs[f.label] = 'This field is required'
       }
@@ -94,11 +105,22 @@ export default function SupplierForm({ form }: { form: Form }) {
 
       {form.fields.map(field => {
         const isVisible = isFieldVisible(field)
+        
+        // Skip rendering section headers, just show them as dividers
+        if (isVisible && field.section === 'SECTION_HEADER') {
+          return (
+            <div key={field.id} className="mt-6 mb-4 pt-4 border-t-2 border-brand-200 dark:border-brand-800">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{field.label}</h3>
+            </div>
+          )
+        }
+        
         return isVisible ? (
         <div key={field.id}>
           <label className="label dark:text-gray-300">
             {field.label}
             {field.required && <span className="text-red-400 ml-0.5">*</span>}
+            {field.hasSuboptions && !field.suboptionsRequired && <span className="text-gray-400 text-xs ml-1">(optional subcategory)</span>}
           </label>
 
           {field.type === 'textarea' ? (
@@ -146,6 +168,62 @@ export default function SupplierForm({ form }: { form: Form }) {
               />
               <span className="text-sm text-gray-600 dark:text-gray-400">Yes</span>
             </label>
+          ) : field.type === 'upload' ? (
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept={field.acceptedFileTypes?.join(',')}
+                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-900 dark:file:text-brand-300 hover:file:bg-brand-200 ${errors[field.label] ? 'border-red-400' : ''}`}
+                onChange={e => set(field.label, e.target.files?.[0]?.name || '')}
+              />
+              {field.acceptedFileTypes && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Allowed: {field.acceptedFileTypes.map(t => {
+                    const typeMap: Record<string, string> = {
+                      'image/jpeg': 'JPEG',
+                      'image/png': 'PNG',
+                      'image/webp': 'WebP',
+                      'image/gif': 'GIF',
+                      'application/pdf': 'PDF',
+                      'application/msword': 'Word'
+                    }
+                    return typeMap[t] || t
+                  }).join(', ')}
+                </p>
+              )}
+            </div>
+          ) : field.hasSuboptions ? (
+            <div className="space-y-3">
+              <select
+                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
+                value={values[field.label] || ''}
+                onChange={e => set(field.label, e.target.value)}
+              >
+                <option value="">Select {field.label}…</option>
+                {field.options?.map((opt, idx) => {
+                  const label = typeof opt === 'string' ? opt : opt.label
+                  return <option key={idx} value={label}>{label}</option>
+                })}
+              </select>
+              
+              {values[field.label] && getSuboptionsForCategory(values[field.label], field).length > 0 && (
+                <div>
+                  <label className={`label dark:text-gray-300 text-sm ${field.suboptionsRequired ? '' : 'opacity-75'}`}>
+                    Subcategory {field.suboptionsRequired && <span className="text-red-400">*</span>}
+                  </label>
+                  <select
+                    className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[`${field.label}_sub`] ? 'border-red-400' : ''}`}
+                    value={values[`${field.label}_sub`] || ''}
+                    onChange={e => set(`${field.label}_sub`, e.target.value)}
+                  >
+                    <option value="">Choose a subcategory…</option>
+                    {getSuboptionsForCategory(values[field.label], field).map((sub, idx) => (
+                      <option key={idx} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           ) : (
             <input
               type={field.type}
