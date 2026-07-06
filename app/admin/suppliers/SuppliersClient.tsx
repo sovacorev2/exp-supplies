@@ -42,6 +42,63 @@ export default function SuppliersClient({
     })
   }, [submissions, search, formId])
 
+  // Calculate summary statistics
+  const summary = useMemo(() => {
+    const stats = {
+      totalAdults: 0,
+      totalChildren: 0,
+      dateBreakdown: {} as Record<string, { count: number, adults: number, children: number }>,
+    }
+    
+    filtered.forEach(sub => {
+      const data = sub.data
+      
+      // Look for adult count field (common patterns)
+      const adultField = Object.entries(data).find(([key]) => 
+        key.toLowerCase().includes('adult') && key.toLowerCase().includes('count')
+      )
+      if (adultField) {
+        const count = parseInt(adultField[1])
+        if (!isNaN(count)) stats.totalAdults += count
+      }
+      
+      // Look for children count field
+      const childField = Object.entries(data).find(([key]) => 
+        key.toLowerCase().includes('child') && key.toLowerCase().includes('count')
+      )
+      if (childField) {
+        const count = parseInt(childField[1])
+        if (!isNaN(count)) stats.totalChildren += count
+      }
+      
+      // Look for date availability field (multiselect with dates)
+      const dateField = Object.entries(data).find(([key]) =>
+        key.toLowerCase().includes('date') && key.toLowerCase().includes('availability')
+      )
+      if (dateField) {
+        const dates = dateField[1].split(',').map(d => d.trim()).filter(Boolean)
+        dates.forEach(date => {
+          if (!stats.dateBreakdown[date]) {
+            stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0 }
+          }
+          stats.dateBreakdown[date].count += 1
+          
+          // Add adults/children for this submission to this date
+          if (adultField) {
+            const count = parseInt(adultField[1])
+            if (!isNaN(count)) stats.dateBreakdown[date].adults += count
+          }
+          if (childField) {
+            const count = parseInt(childField[1])
+            if (!isNaN(count)) stats.dateBreakdown[date].children += count
+          }
+        })
+      }
+    })
+    
+    return stats
+  }, [filtered])
+
 
 
 
@@ -172,6 +229,51 @@ export default function SuppliersClient({
         </div>
       </div>
 
+      {/* Summary Dashboard */}
+      {filtered.length > 0 && (
+        <>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 border-b border-blue-200 dark:border-gray-600 px-4 md:px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-blue-100 dark:border-gray-600">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Total Adults</p>
+              <p className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">{summary.totalAdults}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-indigo-100 dark:border-gray-600">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Total Children</p>
+              <p className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">{summary.totalChildren}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-green-100 dark:border-gray-600">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Total Responses</p>
+              <p className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">{filtered.length}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-purple-100 dark:border-gray-600">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Dates</p>
+              <p className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(summary.dateBreakdown).length}</p>
+            </div>
+          </div>
+
+          {/* Date Breakdown */}
+          {Object.keys(summary.dateBreakdown).length > 0 && (
+            <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 md:px-6 py-4">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Submissions per Date</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {Object.entries(summary.dateBreakdown)
+                  .sort((a, b) => b[1].count - a[1].count)
+                  .map(([date, stats]) => (
+                    <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
+                      <div className="flex gap-4 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> response{stats.count !== 1 ? 's' : ''}</span>
+                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults</span>
+                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Main content area - Table takes full width */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Table section */}
@@ -259,6 +361,10 @@ export default function SuppliersClient({
                 const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product') || key.toLowerCase().includes('supply')
                 const isImageUrl = isImageField && typeof value === 'string' && value.startsWith('https://')
                 
+                // Detect and format multiselect/checkbox fields (comma-separated values)
+                const isMultiselect = typeof value === 'string' && value.includes(',')
+                const items = isMultiselect ? value.split(',').map(v => v.trim()).filter(Boolean) : []
+                
                 return (
                   <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
                     <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 font-bold mb-3">{key}</p>
@@ -272,6 +378,15 @@ export default function SuppliersClient({
                         <ExternalLink size={16} />
                         View Image
                       </a>
+                    ) : isMultiselect && items.length > 1 ? (
+                      <ul className="space-y-2">
+                        {items.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-brand-600 dark:text-brand-400 font-bold mt-0.5">•</span>
+                            <span className="text-sm md:text-base text-gray-900 dark:text-gray-100">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
                       <p className="text-sm md:text-base text-gray-900 dark:text-gray-100 leading-relaxed break-words font-medium">{value || '—'}</p>
                     )}
