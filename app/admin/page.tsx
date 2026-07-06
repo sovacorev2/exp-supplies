@@ -6,10 +6,14 @@ import FormActions from './forms/FormActions'
 export const revalidate = 0
 
 export default async function FormsPage() {
-  const [forms, submissions] = await Promise.all([
-    getForms(),
-    getSubmissions(),
-  ])
+  let forms: Awaited<ReturnType<typeof getForms>> = []
+  let submissions: Awaited<ReturnType<typeof getSubmissions>> = []
+
+  try {
+    ;[forms, submissions] = await Promise.all([getForms(), getSubmissions()])
+  } catch (err) {
+    console.error('[v0] FormsPage DB error:', err)
+  }
 
   const countMap: Record<string, number> = {}
   submissions.forEach(s => { countMap[s.form_id] = (countMap[s.form_id] || 0) + 1 })

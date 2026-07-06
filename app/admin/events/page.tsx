@@ -6,10 +6,14 @@ import { ArrowLeft, Calendar } from 'lucide-react'
 export const revalidate = 0
 
 export default async function EventsPage() {
-  const [submissions, forms] = await Promise.all([
-    getSubmissions(),
-    getForms(),
-  ])
+  let submissions: Awaited<ReturnType<typeof getSubmissions>> = []
+  let forms: Awaited<ReturnType<typeof getForms>> = []
+
+  try {
+    ;[submissions, forms] = await Promise.all([getSubmissions(), getForms()])
+  } catch (err) {
+    console.error('[v0] EventsPage DB error:', err)
+  }
 
   // Find the event attendance form
   const eventForm = forms.find(f => f.slug === 'event-attendance')
