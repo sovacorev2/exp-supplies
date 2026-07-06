@@ -40,8 +40,13 @@ export default function NewFormPage() {
   const [currentSection, setCurrentSection] = useState('')
   const [newSectionName, setNewSectionName] = useState('')
   const [newDependsOnField, setNewDependsOnField] = useState('')
+  const [newDependsOnOperator, setNewDependsOnOperator] = useState<'===' | '!==' | '>' | '<' | '>=' | '<=' | 'contains' | 'not-contains'>('===')
   const [newDependsOnValue, setNewDependsOnValue] = useState('')
   const [newAcceptedFileTypes, setNewAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
+  const [newMinValue, setNewMinValue] = useState('')
+  const [newMaxValue, setNewMaxValue] = useState('')
+  const [newMinLength, setNewMinLength] = useState('')
+  const [newMaxLength, setNewMaxLength] = useState('')
 
   function addSection() {
     if (!newSectionName.trim()) return
@@ -85,8 +90,13 @@ export default function NewFormPage() {
       section: currentSection || undefined,
       dependsOn: newDependsOnField && newDependsOnValue ? {
         fieldLabel: newDependsOnField,
+        operator: newDependsOnOperator,
         triggerValue: newDependsOnValue
       } : undefined,
+      minValue: newMinValue ? parseFloat(newMinValue) : undefined,
+      maxValue: newMaxValue ? parseFloat(newMaxValue) : undefined,
+      minLength: newMinLength ? parseInt(newMinLength) : undefined,
+      maxLength: newMaxLength ? parseInt(newMaxLength) : undefined,
       acceptedFileTypes: newType === 'upload' ? newAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
     }
     setFields(prev => [...prev, field])
@@ -97,7 +107,12 @@ export default function NewFormPage() {
     setNewSuboptionsRequired(false)
     setNewSuboptionsMap({})
     setNewDependsOnField('')
+    setNewDependsOnOperator('===')
     setNewDependsOnValue('')
+    setNewMinValue('')
+    setNewMaxValue('')
+    setNewMinLength('')
+    setNewMaxLength('')
     setNewAcceptedFileTypes('image/jpeg,image/png,image/webp')
   }
 
@@ -258,6 +273,38 @@ export default function NewFormPage() {
               )}
             </div>
             
+            {newType === 'number' && (
+              <div className="space-y-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <label className="label text-sm">Numeric constraints</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Minimum value</label>
+                    <input type="number" className="input" value={newMinValue} onChange={e => setNewMinValue(e.target.value)} placeholder="e.g. 0" />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Maximum value</label>
+                    <input type="number" className="input" value={newMaxValue} onChange={e => setNewMaxValue(e.target.value)} placeholder="e.g. 100" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(newType === 'text' || newType === 'textarea') && (
+              <div className="space-y-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <label className="label text-sm">Text length constraints</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Minimum length</label>
+                    <input type="number" className="input" value={newMinLength} onChange={e => setNewMinLength(e.target.value)} placeholder="e.g. 5" />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Maximum length</label>
+                    <input type="number" className="input" value={newMaxLength} onChange={e => setNewMaxLength(e.target.value)} placeholder="e.g. 200" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {(newType === 'select' || newType === 'multiselect') && (
               <>
                 <div>
@@ -312,31 +359,43 @@ export default function NewFormPage() {
 
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={!!newDependsOnField} onChange={e => { if (!e.target.checked) { setNewDependsOnField(''); setNewDependsOnValue(''); } }} className="w-4 h-4 rounded" />
+                <input type="checkbox" checked={!!newDependsOnField} onChange={e => { if (!e.target.checked) { setNewDependsOnField(''); setNewDependsOnOperator('==='); setNewDependsOnValue(''); } }} className="w-4 h-4 rounded" />
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Show this field only when...</span>
               </label>
               {newDependsOnField !== undefined && (
                 <div className="space-y-3 pl-7">
                   <div>
-                    <label className="label text-xs">When this field equals:</label>
+                    <label className="label text-xs">Select a field:</label>
                     <select className="input text-sm" value={newDependsOnField} onChange={e => setNewDependsOnField(e.target.value)}>
                       <option value="">-- Select a field --</option>
-                      {fields.filter(f => f.type === 'select' && f.section !== 'SECTION_HEADER').map(f => (
-                        <option key={f.id} value={f.label}>{f.label}</option>
+                      {fields.filter(f => (f.type === 'select' || f.type === 'multiselect' || f.type === 'number' || f.type === 'checkbox') && f.section !== 'SECTION_HEADER').map(f => (
+                        <option key={f.id} value={f.label}>{f.label} ({f.type})</option>
                       ))}
                     </select>
                   </div>
                   {newDependsOnField && (
-                    <div>
-                      <label className="label text-xs">Trigger value:</label>
-                      <select className="input text-sm" value={newDependsOnValue} onChange={e => setNewDependsOnValue(e.target.value)}>
-                        <option value="">-- Select value --</option>
-                        {fields.find(f => f.label === newDependsOnField)?.options?.map((opt, idx) => {
-                          const label = typeof opt === 'string' ? opt : opt.label
-                          return <option key={idx} value={label}>{label}</option>
-                        })}
-                      </select>
-                    </div>
+                    <>
+                      <div>
+                        <label className="label text-xs">Condition:</label>
+                        <select className="input text-sm" value={newDependsOnOperator} onChange={e => setNewDependsOnOperator(e.target.value as any)}>
+                          <option value="===">equals (===)</option>
+                          <option value="!==">not equals (!==)</option>
+                          <option value=">">greater than (&gt;)</option>
+                          <option value="<">less than (&lt;)</option>
+                          <option value=">=">&gt;= (greater or equal)</option>
+                          <option value="<=">&lt;= (less or equal)</option>
+                          <option value="contains">contains text</option>
+                          <option value="not-contains">doesn&apos;t contain text</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-xs">Trigger value:</label>
+                        <input type="text" className="input text-sm" value={newDependsOnValue} onChange={e => setNewDependsOnValue(e.target.value)} placeholder="Enter value or number" />
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          For number fields, enter a number. For select/checkbox fields, enter the option label.
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

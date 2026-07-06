@@ -19,10 +19,45 @@ export default function SupplierForm({ form }: { form: Form }) {
     if (errors[id]) setErrors(prev => { const e = { ...prev }; delete e[id]; return e })
   }
 
+  function evaluateCondition(fieldValue: string | undefined, operator: string, triggerValue: string | number): boolean {
+    if (fieldValue === undefined || fieldValue === '') return false
+    
+    const numValue = parseFloat(fieldValue)
+    const numTrigger = typeof triggerValue === 'number' ? triggerValue : parseFloat(triggerValue)
+    
+    switch (operator) {
+      case '===':
+        return fieldValue === String(triggerValue)
+      case '!==':
+        return fieldValue !== String(triggerValue)
+      case '>':
+        return !isNaN(numValue) && !isNaN(numTrigger) && numValue > numTrigger
+      case '<':
+        return !isNaN(numValue) && !isNaN(numTrigger) && numValue < numTrigger
+      case '>=':
+        return !isNaN(numValue) && !isNaN(numTrigger) && numValue >= numTrigger
+      case '<=':
+        return !isNaN(numValue) && !isNaN(numTrigger) && numValue <= numTrigger
+      case 'contains':
+        return fieldValue.toLowerCase().includes(String(triggerValue).toLowerCase())
+      case 'not-contains':
+        return !fieldValue.toLowerCase().includes(String(triggerValue).toLowerCase())
+      default:
+        return false
+    }
+  }
+
   function isFieldVisible(field: typeof form.fields[0]): boolean {
     if (!field.dependsOn) return true
-    const dependentFieldValue = values[field.dependsOn.fieldLabel]
-    return dependentFieldValue === field.dependsOn.triggerValue
+    
+    // Handle both single rule and array of rules
+    const rules = Array.isArray(field.dependsOn) ? field.dependsOn : [field.dependsOn]
+    
+    // ALL rules must be true (AND logic)
+    return rules.every(rule => {
+      const dependentFieldValue = values[rule.fieldLabel]
+      return evaluateCondition(dependentFieldValue, rule.operator, rule.triggerValue)
+    })
   }
 
   function getSuboptionsForCategory(categoryLabel: string, field: typeof form.fields[0]): string[] {
@@ -36,15 +71,42 @@ export default function SupplierForm({ form }: { form: Form }) {
     const errs: Record<string, string> = {}
     form.fields.forEach(f => {
       const isVisible = isFieldVisible(f)
+      const value = values[f.label]?.trim()
       
       // Skip section headers
       if (f.section === 'SECTION_HEADER') return
       
-      if (isVisible && f.required && !values[f.label]?.trim()) {
+      if (isVisible && f.required && !value) {
         errs[f.label] = 'This field is required'
+        return
       }
-      if (isVisible && f.type === 'email' && values[f.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[f.label])) {
+      
+      if (!isVisible) return
+      
+      // Type-specific validation
+      if (f.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
         errs[f.label] = 'Please enter a valid email'
+      }
+      
+      // Number constraints
+      if (f.type === 'number' && value) {
+        const numValue = parseFloat(value)
+        if (isNaN(numValue)) {
+          errs[f.label] = 'Please enter a valid number'
+        } else if (f.minValue !== undefined && numValue < f.minValue) {
+          errs[f.label] = `Minimum value is ${f.minValue}`
+        } else if (f.maxValue !== undefined && numValue > f.maxValue) {
+          errs[f.label] = `Maximum value is ${f.maxValue}`
+        }
+      }
+      
+      // Text length constraints
+      if ((f.type === 'text' || f.type === 'textarea') && value) {
+        if (f.minLength !== undefined && value.length < f.minLength) {
+          errs[f.label] = `Minimum ${f.minLength} characters`
+        } else if (f.maxLength !== undefined && value.length > f.maxLength) {
+          errs[f.label] = `Maximum ${f.maxLength} characters`
+        }
       }
     })
     return errs

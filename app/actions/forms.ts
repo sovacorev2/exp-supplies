@@ -11,6 +11,12 @@ export interface DropdownOption {
   suboptions?: string[]
 }
 
+export interface ConditionalRule {
+  fieldLabel: string
+  operator: '===' | '!==' | '>' | '<' | '>=' | '<=' | 'contains' | 'not-contains'
+  triggerValue: string | number
+}
+
 export interface FormField {
   id: string
   label: string
@@ -21,10 +27,13 @@ export interface FormField {
   hasSuboptions?: boolean
   suboptionsRequired?: boolean
   section?: string
-  dependsOn?: {
-    fieldLabel: string
-    triggerValue: string
-  }
+  // Constraints for field types
+  minValue?: number
+  maxValue?: number
+  minLength?: number
+  maxLength?: number
+  // Conditional logic (supports multiple conditions with AND logic)
+  dependsOn?: ConditionalRule | ConditionalRule[]
   acceptedFileTypes?: string[]
 }
 
