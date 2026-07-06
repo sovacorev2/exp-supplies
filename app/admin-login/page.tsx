@@ -17,16 +17,15 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
 
-    // Simulate verification delay
+    // Verify password and redirect (no session storage - requires password on each refresh)
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
-        // Store session token in localStorage and httpOnly cookie
-        localStorage.setItem('admin_authenticated', 'true')
-        localStorage.setItem('admin_login_time', Date.now().toString())
+        // Clear any previous session data
+        localStorage.removeItem('admin_authenticated')
+        localStorage.removeItem('admin_login_time')
+        document.cookie = 'admin_session=; path=/admin; max-age=0'
         
-        // Set a cookie for server-side verification
-        document.cookie = `admin_session=${Date.now()}; path=/admin; max-age=28800; SameSite=Strict`
-        
+        // Navigate to admin - server/client will handle permission check
         router.push('/admin')
       } else {
         setError('Invalid password. Please try again.')
