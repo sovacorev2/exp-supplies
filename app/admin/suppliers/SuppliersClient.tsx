@@ -76,7 +76,7 @@ export default function SuppliersClient({
         key.toLowerCase().includes('date') && key.toLowerCase().includes('availability')
       )
       if (dateField) {
-        const dates = dateField[1].split(',').map(d => d.trim()).filter(Boolean)
+        const dates = dateField[1].split('||').map(d => d.trim()).filter(Boolean)
         dates.forEach(date => {
           if (!stats.dateBreakdown[date]) {
             stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0 }
@@ -361,9 +361,9 @@ export default function SuppliersClient({
                 const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product') || key.toLowerCase().includes('supply')
                 const isImageUrl = isImageField && typeof value === 'string' && value.startsWith('https://')
                 
-                // Detect and format multiselect/checkbox fields (comma-separated values)
-                const isMultiselect = typeof value === 'string' && value.includes(',')
-                const items = isMultiselect ? value.split(',').map(v => v.trim()).filter(Boolean) : []
+                // Detect and format multiselect/checkbox fields (|| separated values)
+                const isMultiselect = typeof value === 'string' && value.includes('||')
+                const items = isMultiselect ? value.split('||').map(v => v.trim()).filter(Boolean) : []
                 
                 return (
                   <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
