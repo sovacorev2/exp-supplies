@@ -1,10 +1,19 @@
 'use client'
 
-import { type Submission } from '@/app/actions/forms'
 import { BarChart3, Users, TrendingUp, AlertCircle } from 'lucide-react'
 
+interface EventSubmission {
+  id: string
+  form_id: string
+  data: Record<string, string | string[] | number>
+  created_at: string | Date
+  status?: string
+  notes?: string
+  updated_at?: string | Date
+}
+
 interface EventAnalysisProps {
-  submissions: Submission[]
+  submissions: EventSubmission[]
 }
 
 interface DateVote {
@@ -24,7 +33,7 @@ interface AnalysisData {
   projectedHeadcount: number
 }
 
-function analyzeSubmissions(submissions: Submission[]): AnalysisData {
+function analyzeSubmissions(submissions: EventSubmission[]): AnalysisData {
   const dateVotes: Record<string, { firstChoice: number; available: number }> = {
     'Friday, 14 August 2026': { firstChoice: 0, available: 0 },
     'Friday, 21 August 2026': { firstChoice: 0, available: 0 },
@@ -42,9 +51,9 @@ function analyzeSubmissions(submissions: Submission[]): AnalysisData {
     
     // Count first choice votes
     if (data['Of those, which is your first choice?']) {
-      const choice = data['Of those, which is your first choice?']
+      const choice = String(data['Of those, which is your first choice?'])
       if (choice in dateVotes) {
-        dateVotes[choice].firstChoice++
+        dateVotes[choice as keyof typeof dateVotes].firstChoice++
       }
     }
 
