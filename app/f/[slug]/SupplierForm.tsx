@@ -279,20 +279,30 @@ export default function SupplierForm({ form }: { form: Form }) {
               })}
             </select>
           ) : field.type === 'multiselect' ? (
-            <select
-              multiple
-              className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${errors[field.label] ? 'border-red-400' : ''}`}
-              value={(values[field.label] || '').split(',').filter(Boolean)}
-              onChange={e => {
-                const selected = Array.from(e.target.selectedOptions, option => option.value)
-                set(field.label, selected.join(','))
-              }}
-            >
+            <div className={`space-y-2 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${errors[field.label] ? 'border-red-400' : 'border-gray-300'}`}>
               {field.options?.map((opt, idx) => {
                 const label = typeof opt === 'string' ? opt : opt.label
-                return <option key={idx} value={label}>{label}</option>
+                const selectedValues = (values[field.label] || '').split(',').filter(Boolean)
+                const isChecked = selectedValues.includes(label)
+                
+                return (
+                  <label key={idx} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 p-2 rounded transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded dark:accent-brand-500 cursor-pointer"
+                      checked={isChecked}
+                      onChange={e => {
+                        const newSelected = e.target.checked
+                          ? [...selectedValues, label]
+                          : selectedValues.filter(v => v !== label)
+                        set(field.label, newSelected.join(','))
+                      }}
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                  </label>
+                )
               })}
-            </select>
+            </div>
           ) : field.type === 'checkbox' ? (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
