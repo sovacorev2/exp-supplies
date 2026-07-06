@@ -90,7 +90,7 @@ export default async function EventsPage() {
               </p>
             </div>
 
-            <EventAnalysis submissions={eventSubmissions} />
+            <EventAnalysis submissions={eventSubmissions as any} />
           </div>
         )}
       </main>
