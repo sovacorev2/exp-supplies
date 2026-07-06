@@ -39,8 +39,10 @@ export default function SupplierForm({ form }: { form: Form }) {
       case '<=':
         return !isNaN(numValue) && !isNaN(numTrigger) && numValue <= numTrigger
       case 'contains':
+        // For multiselect fields with || delimiter, check if value contains the trigger
         return fieldValue.toLowerCase().includes(String(triggerValue).toLowerCase())
       case 'not-contains':
+        // For multiselect fields, check if value does NOT contain the trigger
         return !fieldValue.toLowerCase().includes(String(triggerValue).toLowerCase())
       default:
         return false
