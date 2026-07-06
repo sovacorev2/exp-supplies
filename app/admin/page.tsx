@@ -1,6 +1,6 @@
 import { getForms, getSubmissions } from '@/app/actions/forms'
 import Link from 'next/link'
-import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
+import { ExternalLink, Copy, Pencil, PlusCircle, Calendar } from 'lucide-react'
 import FormActions from './forms/FormActions'
 
 export const revalidate = 0
@@ -18,9 +18,14 @@ export default async function FormsPage() {
     <>
       <header className="bg-brand-600 dark:bg-brand-700 border-b border-brand-700 dark:border-brand-800 px-4 md:px-6 py-4 md:py-5 flex items-center justify-between flex-shrink-0">
         <h1 className="font-bold text-xl md:text-2xl text-white">Forms</h1>
-        <Link href="/admin/forms/new" className="flex items-center gap-2 bg-white hover:bg-gray-100 text-brand-600 font-semibold py-2 px-4 rounded-lg transition-colors text-sm md:text-base">
-          <PlusCircle size={18} /> New form
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/events" className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm md:text-base">
+            <Calendar size={18} /> Events
+          </Link>
+          <Link href="/admin/forms/new" className="flex items-center gap-2 bg-white hover:bg-gray-100 text-brand-600 font-semibold py-2 px-4 rounded-lg transition-colors text-sm md:text-base">
+            <PlusCircle size={18} /> New form
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
