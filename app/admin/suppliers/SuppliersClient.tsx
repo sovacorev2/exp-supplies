@@ -48,6 +48,10 @@ export default function SuppliersClient({
       totalAdults: 0,
       totalChildren: 0,
       dateBreakdown: {} as Record<string, { count: number, adults: number, children: number }>,
+      preferredDate: '',
+      preferredDateCount: 0,
+      selectedAllDatesCount: 0,
+      totalUniqueDate: 0,
     }
     
     filtered.forEach(sub => {
