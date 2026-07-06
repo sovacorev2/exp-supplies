@@ -294,7 +294,7 @@ export default function SupplierForm({ form }: { form: Form }) {
                   return null // Skip empty labels
                 }
                 
-                const selectedValues = (values[field.label] || '').split(',').filter(v => v.trim())
+                const selectedValues = (values[field.label] || '').split('||').filter(v => v.trim())
                 const isChecked = selectedValues.some(v => v.trim() === label)
                 
                 return (
@@ -303,18 +303,12 @@ export default function SupplierForm({ form }: { form: Form }) {
                       type="checkbox"
                       className="w-4 h-4 rounded dark:accent-brand-500 cursor-pointer"
                       checked={isChecked}
-                      disabled={false}
                       onChange={e => {
-                        console.log("[v0] Checkbox clicked:", { field: field.label, label, checked: e.target.checked, isChecked, selectedValues })
                         const newSelected = e.target.checked
                           ? [...selectedValues, label.trim()]
                           : selectedValues.filter(v => v.trim() !== label.trim())
-                        const finalValue = newSelected.filter(Boolean).join(',')
-                        console.log("[v0] New selected values:", newSelected, "Final:", finalValue)
+                        const finalValue = newSelected.filter(Boolean).join('||')
                         set(field.label, finalValue)
-                      }}
-                      onClick={e => {
-                        console.log("[v0] Checkbox onClick fired:", { label })
                       }}
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
