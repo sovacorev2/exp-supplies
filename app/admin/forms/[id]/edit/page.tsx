@@ -109,6 +109,7 @@ export default function EditFormPage() {
       suboptionsRequired: newHasSuboptions ? newSuboptionsRequired : undefined,
       dependsOn: newDependsOnField && newDependsOnValue ? {
         fieldLabel: newDependsOnField,
+        operator: '===',
         triggerValue: newDependsOnValue
       } : undefined,
       acceptedFileTypes: newType === 'upload' ? newAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
