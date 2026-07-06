@@ -9,14 +9,10 @@ export default async function SuppliersPage({
   searchParams: Promise<{ form?: string }>
 }) {
   const params = await searchParams
-  let submissions: Awaited<ReturnType<typeof getSubmissions>> = []
-  let forms: Awaited<ReturnType<typeof getForms>> = []
-
-  try {
-    ;[submissions, forms] = await Promise.all([getSubmissions(), getForms()])
-  } catch (err) {
-    console.error('[v0] SuppliersPage DB error:', err)
-  }
+  const [submissions, forms] = await Promise.all([
+    getSubmissions(),
+    getForms(),
+  ])
 
   return (
     <SuppliersClient
