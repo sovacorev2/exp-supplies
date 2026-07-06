@@ -284,15 +284,18 @@ export default function SupplierForm({ form }: { form: Form }) {
                 // Handle both string and object options
                 let label = ''
                 if (typeof opt === 'string') {
-                  label = opt
+                  label = opt.trim()
                 } else if (typeof opt === 'object' && opt !== null) {
-                  label = opt.label || (opt as any).value || JSON.stringify(opt)
+                  label = (opt.label || (opt as any).value || '').toString().trim()
                 }
                 
-                if (!label) return null // Skip empty labels
+                if (!label) {
+                  console.log("[v0] Skipping empty label for option", idx, opt)
+                  return null // Skip empty labels
+                }
                 
-                const selectedValues = (values[field.label] || '').split(',').filter(Boolean)
-                const isChecked = selectedValues.includes(label)
+                const selectedValues = (values[field.label] || '').split(',').filter(v => v.trim())
+                const isChecked = selectedValues.some(v => v.trim() === label)
                 
                 return (
                   <label key={idx} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 p-2 rounded transition-colors">
@@ -300,11 +303,18 @@ export default function SupplierForm({ form }: { form: Form }) {
                       type="checkbox"
                       className="w-4 h-4 rounded dark:accent-brand-500 cursor-pointer"
                       checked={isChecked}
+                      disabled={false}
                       onChange={e => {
+                        console.log("[v0] Checkbox clicked:", { field: field.label, label, checked: e.target.checked, isChecked, selectedValues })
                         const newSelected = e.target.checked
-                          ? [...selectedValues, label]
-                          : selectedValues.filter(v => v !== label)
-                        set(field.label, newSelected.join(','))
+                          ? [...selectedValues, label.trim()]
+                          : selectedValues.filter(v => v.trim() !== label.trim())
+                        const finalValue = newSelected.filter(Boolean).join(',')
+                        console.log("[v0] New selected values:", newSelected, "Final:", finalValue)
+                        set(field.label, finalValue)
+                      }}
+                      onClick={e => {
+                        console.log("[v0] Checkbox onClick fired:", { label })
                       }}
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
