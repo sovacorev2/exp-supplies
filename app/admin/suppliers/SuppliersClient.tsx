@@ -229,8 +229,8 @@ export default function SuppliersClient({
         </div>
       </div>
 
-      {/* Summary Dashboard */}
-      {filtered.length > 0 && (
+      {/* Summary Dashboard - Only show if form has Adult/Children count fields */}
+      {filtered.length > 0 && (summary.totalAdults > 0 || summary.totalChildren > 0 || Object.keys(summary.dateBreakdown).length > 0) && (
         <>
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 border-b border-blue-200 dark:border-gray-600 px-4 md:px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-blue-100 dark:border-gray-600">
@@ -251,8 +251,8 @@ export default function SuppliersClient({
             </div>
           </div>
 
-          {/* Date Breakdown */}
-          {Object.keys(summary.dateBreakdown).length > 0 && (
+          {/* Date Breakdown - Only show if dates were found */}
+          {Object.keys(summary.dateBreakdown).length > 1 && (
             <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 md:px-6 py-4">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Submissions per Date</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
