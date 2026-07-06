@@ -280,8 +280,17 @@ export default function SupplierForm({ form }: { form: Form }) {
             </select>
           ) : field.type === 'multiselect' ? (
             <div className={`space-y-2 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${errors[field.label] ? 'border-red-400' : 'border-gray-300'}`}>
-              {field.options?.map((opt, idx) => {
-                const label = typeof opt === 'string' ? opt : opt.label
+              {field.options && field.options.length > 0 ? field.options.map((opt, idx) => {
+                // Handle both string and object options
+                let label = ''
+                if (typeof opt === 'string') {
+                  label = opt
+                } else if (typeof opt === 'object' && opt !== null) {
+                  label = opt.label || (opt as any).value || JSON.stringify(opt)
+                }
+                
+                if (!label) return null // Skip empty labels
+                
                 const selectedValues = (values[field.label] || '').split(',').filter(Boolean)
                 const isChecked = selectedValues.includes(label)
                 
@@ -301,7 +310,9 @@ export default function SupplierForm({ form }: { form: Form }) {
                     <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
                   </label>
                 )
-              })}
+              }) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No options available</p>
+              )}
             </div>
           ) : field.type === 'checkbox' ? (
             <label className="flex items-center gap-2 cursor-pointer">
