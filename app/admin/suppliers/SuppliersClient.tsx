@@ -47,56 +47,72 @@ export default function SuppliersClient({
     const stats = {
       totalAdults: 0,
       totalChildren: 0,
-      dateBreakdown: {} as Record<string, { count: number, adults: number, children: number }>,
+      dateBreakdown: {} as Record<string, { count: number, adults: number, children: number, firstChoiceVotes: number }>,
       preferredDate: '',
-      preferredDateCount: 0,
+      preferredDateHeadcount: 0,
       selectedAllDatesCount: 0,
-      totalUniqueDate: 0,
     }
     
     filtered.forEach(sub => {
       const data = sub.data
       
-      // Look for adult count field (any field with "adult" in name that's a number)
+      // Find count fields
       const adultField = Object.entries(data).find(([key, val]) => 
         key.toLowerCase().includes('adult') && !isNaN(parseInt(val))
       )
-      if (adultField) {
-        const count = parseInt(adultField[1])
-        if (!isNaN(count)) stats.totalAdults += count
-      }
+      const adultCount = adultField ? parseInt(adultField[1]) : 0
+      if (adultCount > 0) stats.totalAdults += adultCount
       
-      // Look for children count field (any field with "child" in name that's a number)
       const childField = Object.entries(data).find(([key, val]) => 
         key.toLowerCase().includes('child') && !isNaN(parseInt(val))
       )
-      if (childField) {
-        const count = parseInt(childField[1])
-        if (!isNaN(count)) stats.totalChildren += count
-      }
+      const childCount = childField ? parseInt(childField[1]) : 0
+      if (childCount > 0) stats.totalChildren += childCount
       
-      // Look for date field (any field with "date" in name that contains ||)
+      // Track date availability
       const dateField = Object.entries(data).find(([key, val]) =>
         key.toLowerCase().includes('date') && typeof val === 'string' && val.includes('||')
       )
       if (dateField) {
         const dates = dateField[1].split('||').map(d => d.trim()).filter(Boolean)
+        
+        // Count if person selected all available dates
+        const allDatesCount = Object.keys(stats.dateBreakdown).length + dates.length
+        if (dates.length > 1 && allDatesCount > 2) {
+          const existingDates = Object.keys(stats.dateBreakdown)
+          const allSelected = existingDates.length > 0 && existingDates.every(d => dates.includes(d))
+          if (allSelected && dates.length === existingDates.length) {
+            stats.selectedAllDatesCount += 1
+          }
+        }
+        
         dates.forEach(date => {
           if (!stats.dateBreakdown[date]) {
-            stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0 }
+            stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
           }
           stats.dateBreakdown[date].count += 1
-          
-          // Add adults/children for this submission to this date
-          if (adultField) {
-            const count = parseInt(adultField[1])
-            if (!isNaN(count)) stats.dateBreakdown[date].adults += count
-          }
-          if (childField) {
-            const count = parseInt(childField[1])
-            if (!isNaN(count)) stats.dateBreakdown[date].children += count
-          }
+          stats.dateBreakdown[date].adults += adultCount
+          stats.dateBreakdown[date].children += childCount
         })
+      }
+      
+      // Track first choice votes
+      const firstChoiceField = Object.entries(data).find(([key]) =>
+        (key.toLowerCase().includes('choice') || key.toLowerCase().includes('preference')) && 
+        key.toLowerCase().includes('date')
+      )
+      if (firstChoiceField && stats.dateBreakdown[firstChoiceField[1]]) {
+        stats.dateBreakdown[firstChoiceField[1]].firstChoiceVotes += 1
+      }
+    })
+    
+    // Find winning date (most first-choice votes)
+    let maxVotes = 0
+    Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
+      if (data.firstChoiceVotes > maxVotes) {
+        maxVotes = data.firstChoiceVotes
+        stats.preferredDate = date
+        stats.preferredDateHeadcount = data.adults + data.children
       }
     })
     
@@ -255,20 +271,31 @@ export default function SuppliersClient({
             </div>
           </div>
 
+          {/* Winning Date Alert */}
+          {summary.preferredDate && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-3">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Preferred Date (Most First-Choice Votes)</p>
+              <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
+              <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
+                <span><strong>{Object.entries(summary.dateBreakdown).find(([d]) => d === summary.preferredDate)?.[1]?.firstChoiceVotes || 0}</strong> first-choice votes</span>
+                <span><strong>{summary.preferredDateHeadcount}</strong> total headcount (adults + kids)</span>
+              </div>
+            </div>
+          )}
+
           {/* Date Breakdown - Only show if dates were found */}
           {Object.keys(summary.dateBreakdown).length > 1 && (
             <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 md:px-6 py-4">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Submissions per Date</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Date Breakdown</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {Object.entries(summary.dateBreakdown)
-                  .sort((a, b) => b[1].count - a[1].count)
+                  .sort((a, b) => b[1].firstChoiceVotes - a[1].firstChoiceVotes)
                   .map(([date, stats]) => (
                     <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
-                      <div className="flex gap-4 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> response{stats.count !== 1 ? 's' : ''}</span>
-                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults</span>
-                        <span><strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</span>
+                      <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available | <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</div>
+                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
                       </div>
                     </div>
                   ))}
