@@ -53,27 +53,27 @@ export default function SuppliersClient({
     filtered.forEach(sub => {
       const data = sub.data
       
-      // Look for adult count field (common patterns)
-      const adultField = Object.entries(data).find(([key]) => 
-        key.toLowerCase().includes('adult') && key.toLowerCase().includes('count')
+      // Look for adult count field (any field with "adult" in name that's a number)
+      const adultField = Object.entries(data).find(([key, val]) => 
+        key.toLowerCase().includes('adult') && !isNaN(parseInt(val))
       )
       if (adultField) {
         const count = parseInt(adultField[1])
         if (!isNaN(count)) stats.totalAdults += count
       }
       
-      // Look for children count field
-      const childField = Object.entries(data).find(([key]) => 
-        key.toLowerCase().includes('child') && key.toLowerCase().includes('count')
+      // Look for children count field (any field with "child" in name that's a number)
+      const childField = Object.entries(data).find(([key, val]) => 
+        key.toLowerCase().includes('child') && !isNaN(parseInt(val))
       )
       if (childField) {
         const count = parseInt(childField[1])
         if (!isNaN(count)) stats.totalChildren += count
       }
       
-      // Look for date availability field (multiselect with dates)
-      const dateField = Object.entries(data).find(([key]) =>
-        key.toLowerCase().includes('date') && key.toLowerCase().includes('availability')
+      // Look for date field (any field with "date" in name that contains ||)
+      const dateField = Object.entries(data).find(([key, val]) =>
+        key.toLowerCase().includes('date') && typeof val === 'string' && val.includes('||')
       )
       if (dateField) {
         const dates = dateField[1].split('||').map(d => d.trim()).filter(Boolean)
