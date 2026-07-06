@@ -1,10 +1,21 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
-// @ts-ignore - pg types will be installed
-import { Pool } from 'pg'
+import { drizzle } from 'drizzle-orm/neon-http'
+import { neon } from '@neondatabase/serverless'
 import * as schema from './schema'
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-})
+let _db: any = null
 
-export const db = drizzle(pool, { schema })
+function initDb() {
+  if (!_db && process.env.DATABASE_URL) {
+    const sql = neon(process.env.DATABASE_URL)
+    _db = drizzle(sql, { schema })
+  }
+  return _db
+}
+
+export const db = new Proxy({}, {
+  get(_, prop) {
+    const db = initDb()
+    if (!db) return undefined
+    return (db as any)[prop]
+  }
+}) as any
