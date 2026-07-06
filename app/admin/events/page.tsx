@@ -1,5 +1,5 @@
 import { getSubmissions, getForms } from '@/app/actions/forms'
-import { EventAnalysis } from './EventAnalysis'
+import { EventAnalysis } from '@/app/admin/events/EventAnalysis'
 import Link from 'next/link'
 import { ArrowLeft, Calendar } from 'lucide-react'
 
