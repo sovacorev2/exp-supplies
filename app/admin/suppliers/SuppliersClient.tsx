@@ -56,7 +56,7 @@ export default function SuppliersClient({
     filtered.forEach(sub => {
       const data = sub.data
       
-      // Find count fields
+      // Find count fields - only count ONCE per person, not per date
       const adultField = Object.entries(data).find(([key, val]) => 
         key.toLowerCase().includes('adult') && !isNaN(parseInt(val))
       )
@@ -91,8 +91,10 @@ export default function SuppliersClient({
             stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
           }
           stats.dateBreakdown[date].count += 1
-          stats.dateBreakdown[date].adults += adultCount
-          stats.dateBreakdown[date].children += childCount
+          // Track availability: each person counts as 1 available per date they select
+          // But for headcount, we need to distribute per-date only for catering purposes
+          stats.dateBreakdown[date].adults += Math.ceil(adultCount / dates.length)
+          stats.dateBreakdown[date].children += Math.ceil(childCount / dates.length)
         })
       }
       
@@ -272,16 +274,22 @@ export default function SuppliersClient({
           </div>
 
           {/* Winning Date Alert */}
-          {summary.preferredDate && (
+          {summary.preferredDate || (Object.keys(summary.dateBreakdown).length > 0 && Object.values(summary.dateBreakdown).some(d => d.count > 0)) ? (
             <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-3">
-              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Preferred Date (Most First-Choice Votes)</p>
-              <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
-              <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
-                <span><strong>{Object.entries(summary.dateBreakdown).find(([d]) => d === summary.preferredDate)?.[1]?.firstChoiceVotes || 0}</strong> first-choice votes</span>
-                <span><strong>{summary.preferredDateHeadcount}</strong> total headcount (adults + kids)</span>
-              </div>
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Winning Date</p>
+              {summary.preferredDate ? (
+                <>
+                  <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
+                  <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
+                    <span><strong>{Object.entries(summary.dateBreakdown).find(([d]) => d === summary.preferredDate)?.[1]?.firstChoiceVotes || 0}</strong> first-choice votes</span>
+                    <span><strong>{summary.preferredDateHeadcount}</strong> total headcount</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-amber-700 dark:text-amber-300">No clear winner - see date breakdown below</p>
+              )}
             </div>
-          )}
+          ) : null}
 
           {/* Date Breakdown - Only show if dates were found */}
           {Object.keys(summary.dateBreakdown).length > 1 && (
