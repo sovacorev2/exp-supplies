@@ -55,7 +55,7 @@ export interface Submission {
 
 export async function getForms(): Promise<Form[]> {
   const rows = await db.select().from(forms).orderBy(desc(forms.created_at))
-  return rows.map(row => ({
+  return rows.map((row: any) => ({
     ...row,
     fields: typeof row.fields === 'string' ? JSON.parse(row.fields) : row.fields || [],
   }))
@@ -70,7 +70,7 @@ export async function getFormBySlug(slug: string): Promise<Form> {
 
   if (!rows[0]) throw new Error('Form not found')
   
-  const row = rows[0]
+  const row = rows[0] as any
   return {
     ...row,
     fields: typeof row.fields === 'string' ? JSON.parse(row.fields) : row.fields || [],
@@ -92,7 +92,7 @@ export async function createForm(
     })
     .returning()
 
-  const row = rows[0]
+  const row = rows[0] as any
   return {
     ...row,
     fields: typeof row.fields === 'string' ? JSON.parse(row.fields) : row.fields || [],
@@ -114,7 +114,7 @@ export async function updateForm(id: string, updates: Partial<Form>): Promise<Fo
     .where(eq(forms.id, id))
     .returning()
 
-  const row = rows[0]
+  const row = rows[0] as any
   return {
     ...row,
     fields: typeof row.fields === 'string' ? JSON.parse(row.fields) : row.fields || [],
@@ -200,22 +200,21 @@ export async function deleteSubmission(id: string): Promise<void> {
 // ── Dashboard stats ────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
-  const allForms = await db.select().from(forms)
-  const allSubmissions = await db.select().from(submissions)
+  const allForms: any[] = await db.select().from(forms)
+  const allSubmissions: any[] = await db.select().from(submissions)
 
-  const categoryCounts: Record<string, number> = {}
-  
-  allForms.forEach(form => {
+  const categoryCounts: any = {}
+  allForms.forEach((form: any) => {
     categoryCounts[form.category] = (categoryCounts[form.category] || 0) + 1
   })
 
   return {
     totalForms: allForms.length,
-    activeForms: allForms.filter(f => f.is_active).length,
+    activeForms: allForms.filter((f: any) => f.is_active).length,
     totalSubmissions: allSubmissions.length,
-    pending: allSubmissions.filter(s => s.status === 'pending').length,
-    approved: allSubmissions.filter(s => s.status === 'approved').length,
-    rejected: allSubmissions.filter(s => s.status === 'rejected').length,
+    pending: allSubmissions.filter((s: any) => s.status === 'pending').length,
+    approved: allSubmissions.filter((s: any) => s.status === 'approved').length,
+    rejected: allSubmissions.filter((s: any) => s.status === 'rejected').length,
     categoryCounts,
   }
 }

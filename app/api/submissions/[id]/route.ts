@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'exp.admin'
 
+export const dynamic = 'force-dynamic'
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
