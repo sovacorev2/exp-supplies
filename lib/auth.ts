@@ -1,5 +1,7 @@
 import { betterAuth } from 'better-auth'
-import { pool } from '@/lib/db'
+import { Pool } from 'pg'
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 export const auth = betterAuth({
   database: pool,
