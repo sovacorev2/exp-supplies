@@ -56,17 +56,19 @@ export default function SuppliersClient({
     filtered.forEach(sub => {
       const data = sub.data
       
-      // Find count fields - only count ONCE per person, not per date
+      // Find count fields - strict matching to avoid false positives
       const adultField = Object.entries(data).find(([key, val]) => 
-        key.toLowerCase().includes('adult') && !isNaN(parseInt(val))
+        (key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
+        !isNaN(parseInt(val)) && parseInt(val) >= 0
       )
-      const adultCount = adultField ? parseInt(adultField[1]) : 0
+      const adultCount = adultField ? Math.max(0, parseInt(adultField[1])) : 0
       if (adultCount > 0) stats.totalAdults += adultCount
       
       const childField = Object.entries(data).find(([key, val]) => 
-        key.toLowerCase().includes('child') && !isNaN(parseInt(val))
+        (key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
+        !isNaN(parseInt(val)) && parseInt(val) >= 0
       )
-      const childCount = childField ? parseInt(childField[1]) : 0
+      const childCount = childField ? Math.max(0, parseInt(childField[1])) : 0
       if (childCount > 0) stats.totalChildren += childCount
       
       // Track date availability
@@ -86,15 +88,17 @@ export default function SuppliersClient({
           }
         }
         
-        dates.forEach(date => {
+        dates.forEach((date, idx) => {
           if (!stats.dateBreakdown[date]) {
             stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
           }
           stats.dateBreakdown[date].count += 1
-          // Track availability: each person counts as 1 available per date they select
-          // But for headcount, we need to distribute per-date only for catering purposes
-          stats.dateBreakdown[date].adults += Math.ceil(adultCount / dates.length)
-          stats.dateBreakdown[date].children += Math.ceil(childCount / dates.length)
+          // For headcount: add full count only to last date to avoid duplication
+          // This shows "potential headcount if this date is chosen"
+          if (idx === dates.length - 1) {
+            stats.dateBreakdown[date].adults += adultCount
+            stats.dateBreakdown[date].children += childCount
+          }
         })
       }
       
