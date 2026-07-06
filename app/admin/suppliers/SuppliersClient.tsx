@@ -56,17 +56,19 @@ export default function SuppliersClient({
     filtered.forEach(sub => {
       const data = sub.data
       
-      // Find count fields - only count ONCE per person, not per date
+      // Find count fields - strict matching to avoid false positives
       const adultField = Object.entries(data).find(([key, val]) => 
-        key.toLowerCase().includes('adult') && !isNaN(parseInt(val))
+        (key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
+        !isNaN(parseInt(val)) && parseInt(val) >= 0
       )
-      const adultCount = adultField ? parseInt(adultField[1]) : 0
+      const adultCount = adultField ? Math.max(0, parseInt(adultField[1])) : 0
       if (adultCount > 0) stats.totalAdults += adultCount
       
       const childField = Object.entries(data).find(([key, val]) => 
-        key.toLowerCase().includes('child') && !isNaN(parseInt(val))
+        (key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
+        !isNaN(parseInt(val)) && parseInt(val) >= 0
       )
-      const childCount = childField ? parseInt(childField[1]) : 0
+      const childCount = childField ? Math.max(0, parseInt(childField[1])) : 0
       if (childCount > 0) stats.totalChildren += childCount
       
       // Track date availability
@@ -86,15 +88,17 @@ export default function SuppliersClient({
           }
         }
         
-        dates.forEach(date => {
+        dates.forEach((date, idx) => {
           if (!stats.dateBreakdown[date]) {
             stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
           }
           stats.dateBreakdown[date].count += 1
-          // Track availability: each person counts as 1 available per date they select
-          // But for headcount, we need to distribute per-date only for catering purposes
-          stats.dateBreakdown[date].adults += Math.ceil(adultCount / dates.length)
-          stats.dateBreakdown[date].children += Math.ceil(childCount / dates.length)
+          // For headcount: add full count only to last date to avoid duplication
+          // This shows "potential headcount if this date is chosen"
+          if (idx === dates.length - 1) {
+            stats.dateBreakdown[date].adults += adultCount
+            stats.dateBreakdown[date].children += childCount
+          }
         })
       }
       
@@ -108,11 +112,19 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date (most first-choice votes)
+    // Find winning date: prioritize first-choice votes, fall back to availability count
     let maxVotes = 0
+    let maxAvailability = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
+      // Check first-choice votes first
       if (data.firstChoiceVotes > maxVotes) {
         maxVotes = data.firstChoiceVotes
+        stats.preferredDate = date
+        stats.preferredDateHeadcount = data.adults + data.children
+      }
+      // Fall back to availability count if no first-choice votes
+      if (maxVotes === 0 && data.count > maxAvailability) {
+        maxAvailability = data.count
         stats.preferredDate = date
         stats.preferredDateHeadcount = data.adults + data.children
       }
@@ -273,23 +285,22 @@ export default function SuppliersClient({
             </div>
           </div>
 
-          {/* Winning Date Alert */}
-          {summary.preferredDate || (Object.keys(summary.dateBreakdown).length > 0 && Object.values(summary.dateBreakdown).some(d => d.count > 0)) ? (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-3">
-              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Winning Date</p>
-              {summary.preferredDate ? (
-                <>
-                  <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
-                  <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
-                    <span><strong>{Object.entries(summary.dateBreakdown).find(([d]) => d === summary.preferredDate)?.[1]?.firstChoiceVotes || 0}</strong> first-choice votes</span>
-                    <span><strong>{summary.preferredDateHeadcount}</strong> total headcount</span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-amber-700 dark:text-amber-300">No clear winner - see date breakdown below</p>
-              )}
-            </div>
-          ) : null}
+          {/* Winning Date Alert - Always show if dates exist */}
+          {summary.preferredDate && (() => {
+            const winningDateData = summary.dateBreakdown[summary.preferredDate]
+            return (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-3">
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Winning Date (Most Selections)</p>
+                <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
+                <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
+                  {winningDateData?.firstChoiceVotes > 0 && (
+                    <span><strong>{winningDateData.firstChoiceVotes}</strong> first-choice votes</span>
+                  )}
+                  <span><strong>{winningDateData?.count || 0}</strong> available | <strong>{summary.preferredDateHeadcount}</strong> headcount</span>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Date Breakdown - Only show if dates were found */}
           {Object.keys(summary.dateBreakdown).length > 1 && (
