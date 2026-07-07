@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard, FileText, PlusCircle, LogOut, Loader, Moon, Sun
 } from 'lucide-react'
@@ -20,8 +20,10 @@ const nav = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [loading, setLoading] = useState(true)
+  const [authenticated, setAuthenticated] = useState(false)
 
   function toggleTheme() {
     const newTheme = theme === 'light' ? 'dark' : 'light'
@@ -35,6 +37,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   useEffect(() => {
+    // Check if coming from login with auth param
+    const isAuth = searchParams.get('auth') === 'true'
+    
+    if (!isAuth) {
+      // Not authenticated - redirect to login
+      router.push('/admin-login')
+      return
+    }
+    
+    setAuthenticated(true)
+    
     // Initialize theme from localStorage or system preference
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -44,13 +57,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       document.documentElement.classList.add('dark')
     }
     setLoading(false)
-  }, [])
+  }, [searchParams, router])
 
   function handleLogout() {
     router.push('/admin-login')
   }
 
-  if (loading) {
+  if (loading || !authenticated) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-50 to-white">
         <div className="flex flex-col items-center gap-3">
