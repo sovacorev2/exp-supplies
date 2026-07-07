@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     // Verify password and redirect
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
-        router.push('/admin')
+        router.push('/admin?auth=true')
       } else {
         setError('Invalid password. Please try again.')
         setPassword('')

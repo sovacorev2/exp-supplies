@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -22,6 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [loading, setLoading] = useState(true)
+  const [authenticated, setAuthenticated] = useState(false)
 
   function toggleTheme() {
     const newTheme = theme === 'light' ? 'dark' : 'light'
@@ -46,11 +49,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setLoading(false)
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    // Check if coming from login with auth param
+    const params = new URLSearchParams(window.location.search)
+    const isAuth = params.get('auth') === 'true'
+    
+    if (!isAuth) {
+      // Not authenticated - redirect to login
+      router.push('/admin-login')
+      return
+    }
+    
+    setAuthenticated(true)
+  }, [router])
+
   function handleLogout() {
     router.push('/admin-login')
   }
 
-  if (loading) {
+  if (loading || !authenticated) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-50 to-white">
         <div className="flex flex-col items-center gap-3">
