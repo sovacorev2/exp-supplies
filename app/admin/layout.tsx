@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FileText, PlusCircle, LogOut, Loader, Moon, Sun
 } from 'lucide-react'
@@ -22,7 +22,6 @@ const nav = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [loading, setLoading] = useState(true)
   const [authenticated, setAuthenticated] = useState(false)
@@ -54,7 +53,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (typeof window === 'undefined') return
     
     // Check if coming from login with auth param
-    const isAuth = searchParams.get('auth') === 'true'
+    const params = new URLSearchParams(window.location.search)
+    const isAuth = params.get('auth') === 'true'
     
     if (!isAuth) {
       // Not authenticated - redirect to login
@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
     
     setAuthenticated(true)
-  }, [searchParams, router])
+  }, [router])
 
   function handleLogout() {
     router.push('/admin-login')
