@@ -299,7 +299,9 @@ export default function SuppliersClient({
                   {winningDateData?.firstChoiceVotes > 0 && (
                     <span><strong>{winningDateData.firstChoiceVotes}</strong> first-choice votes</span>
                   )}
-                  <span><strong>{winningDateData?.count || 0}</strong> available | <strong>{summary.preferredDateHeadcount}</strong> headcount</span>
+                  {summary.preferredDateHeadcount > 0 && (
+                    <span><strong>{summary.preferredDateHeadcount}</strong> headcount</span>
+                  )}
                 </div>
               </div>
             )
@@ -317,7 +319,7 @@ export default function SuppliersClient({
                     <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
                       <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available | <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</div>
+                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
                         <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
                       </div>
                     </div>
