@@ -112,21 +112,24 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date: prioritize first-choice votes, fall back to availability count
+    // Find winning date: only consider dates with actual headcount (adults > 0 or children > 0)
     let maxVotes = 0
     let maxAvailability = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
-      // Check first-choice votes first
-      if (data.firstChoiceVotes > maxVotes) {
-        maxVotes = data.firstChoiceVotes
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
-      }
-      // Fall back to availability count if no first-choice votes
-      if (maxVotes === 0 && data.count > maxAvailability) {
-        maxAvailability = data.count
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
+      // Only consider dates with headcount
+      if (data.adults > 0 || data.children > 0) {
+        // Check first-choice votes first
+        if (data.firstChoiceVotes > maxVotes) {
+          maxVotes = data.firstChoiceVotes
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
+        // Fall back to availability count if no first-choice votes
+        if (maxVotes === 0 && data.count > maxAvailability) {
+          maxAvailability = data.count
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
       }
     })
     
@@ -296,7 +299,9 @@ export default function SuppliersClient({
                   {winningDateData?.firstChoiceVotes > 0 && (
                     <span><strong>{winningDateData.firstChoiceVotes}</strong> first-choice votes</span>
                   )}
-                  <span><strong>{winningDateData?.count || 0}</strong> available | <strong>{summary.preferredDateHeadcount}</strong> headcount</span>
+                  {summary.preferredDateHeadcount > 0 && (
+                    <span><strong>{summary.preferredDateHeadcount}</strong> headcount</span>
+                  )}
                 </div>
               </div>
             )
@@ -314,7 +319,7 @@ export default function SuppliersClient({
                     <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
                       <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available | <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</div>
+                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
                         <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
                       </div>
                     </div>
