@@ -58,17 +58,17 @@ export default function SuppliersClient({
       
       // Find count fields - strict matching to avoid false positives
       const adultField = Object.entries(data).find(([key, val]) => 
-        (key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
-        !isNaN(parseInt(val)) && parseInt(val) >= 0
+        (key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number')))
       )
-      const adultCount = adultField ? Math.max(0, parseInt(adultField[1])) : 0
+      const adultCountParsed = adultField ? parseInt(adultField[1]) : 0
+      const adultCount = !isNaN(adultCountParsed) && adultCountParsed >= 0 ? Math.max(0, adultCountParsed) : 0
       if (adultCount > 0) stats.totalAdults += adultCount
       
       const childField = Object.entries(data).find(([key, val]) => 
-        (key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))) && 
-        !isNaN(parseInt(val)) && parseInt(val) >= 0
+        (key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number')))
       )
-      const childCount = childField ? Math.max(0, parseInt(childField[1])) : 0
+      const childCountParsed = childField ? parseInt(childField[1]) : 0
+      const childCount = !isNaN(childCountParsed) && childCountParsed >= 0 ? Math.max(0, childCountParsed) : 0
       if (childCount > 0) stats.totalChildren += childCount
       
       // Track date availability
