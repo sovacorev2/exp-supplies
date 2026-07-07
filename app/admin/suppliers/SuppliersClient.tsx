@@ -112,21 +112,24 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date: prioritize first-choice votes, fall back to availability count
+    // Find winning date: only consider dates with actual headcount (adults > 0 or children > 0)
     let maxVotes = 0
     let maxAvailability = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
-      // Check first-choice votes first
-      if (data.firstChoiceVotes > maxVotes) {
-        maxVotes = data.firstChoiceVotes
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
-      }
-      // Fall back to availability count if no first-choice votes
-      if (maxVotes === 0 && data.count > maxAvailability) {
-        maxAvailability = data.count
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
+      // Only consider dates with headcount
+      if (data.adults > 0 || data.children > 0) {
+        // Check first-choice votes first
+        if (data.firstChoiceVotes > maxVotes) {
+          maxVotes = data.firstChoiceVotes
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
+        // Fall back to availability count if no first-choice votes
+        if (maxVotes === 0 && data.count > maxAvailability) {
+          maxAvailability = data.count
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
       }
     })
     
