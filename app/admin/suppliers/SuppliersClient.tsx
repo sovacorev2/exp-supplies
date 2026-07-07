@@ -313,7 +313,7 @@ export default function SuppliersClient({
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Date Breakdown</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {Object.entries(summary.dateBreakdown)
-                  .filter(([, stats]) => (stats.adults > 0 || stats.children > 0) && (stats.firstChoiceVotes > 0 || stats.adults > 0 || stats.children > 0))
+                  .filter(([, stats]) => stats.count > 0)
                   .sort((a, b) => b[1].firstChoiceVotes - a[1].firstChoiceVotes)
                   .map(([date, stats]) => (
                     <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
