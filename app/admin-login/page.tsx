@@ -17,15 +17,14 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
 
-    // Verify password and redirect (no session storage - requires password on each refresh)
+    // Verify password and redirect
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
-        // Clear any previous session data
-        localStorage.removeItem('admin_authenticated')
-        localStorage.removeItem('admin_login_time')
-        document.cookie = 'admin_session=; path=/admin; max-age=0'
+        // Set authentication flag (valid for 8 hours)
+        localStorage.setItem('admin_authenticated', 'true')
+        localStorage.setItem('admin_login_time', Date.now().toString())
         
-        // Navigate to admin - server/client will handle permission check
+        // Navigate to admin
         router.push('/admin')
       } else {
         setError('Invalid password. Please try again.')
