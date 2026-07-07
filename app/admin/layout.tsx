@@ -39,8 +39,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    
     // Initialize theme from localStorage or system preference
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -49,6 +47,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark')
     }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
     
     // Check if coming from login with auth param
     const isAuth = searchParams.get('auth') === 'true'
@@ -60,7 +63,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
     
     setAuthenticated(true)
-    setLoading(false)
   }, [searchParams, router])
 
   function handleLogout() {
