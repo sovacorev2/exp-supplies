@@ -21,7 +21,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
   function toggleTheme() {
@@ -44,31 +43,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark')
     }
-
-    // Check authentication
-    const isAuth = localStorage.getItem('admin_authenticated') === 'true'
-    const loginTime = localStorage.getItem('admin_login_time')
-    
-    // Check if session is still valid (8 hours)
-    if (isAuth && loginTime) {
-      const elapsed = Date.now() - parseInt(loginTime)
-      if (elapsed < 8 * 60 * 60 * 1000) {
-        setAuthenticated(true)
-      } else {
-        localStorage.removeItem('admin_authenticated')
-        localStorage.removeItem('admin_login_time')
-        router.push('/admin-login')
-      }
-    } else {
-      router.push('/admin-login')
-    }
     setLoading(false)
-  }, [router])
+  }, [])
 
   function handleLogout() {
-    localStorage.removeItem('admin_authenticated')
-    localStorage.removeItem('admin_login_time')
-    document.cookie = 'admin_session=; path=/admin; max-age=0'
     router.push('/admin-login')
   }
 
@@ -81,10 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     )
-  }
-
-  if (!authenticated) {
-    return null
   }
 
   return (

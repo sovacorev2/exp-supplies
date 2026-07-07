@@ -20,11 +20,6 @@ export default function AdminLoginPage() {
     // Verify password and redirect
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
-        // Set authentication flag (valid for 8 hours)
-        localStorage.setItem('admin_authenticated', 'true')
-        localStorage.setItem('admin_login_time', Date.now().toString())
-        
-        // Navigate to admin
         router.push('/admin')
       } else {
         setError('Invalid password. Please try again.')
