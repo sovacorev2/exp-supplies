@@ -71,34 +71,24 @@ export default function SuppliersClient({
       const childCount = !isNaN(childCountParsed) && childCountParsed >= 0 ? Math.max(0, childCountParsed) : 0
       if (childCount > 0) stats.totalChildren += childCount
       
-      // Track date availability
+      // Track date availability - works for single OR multiple dates
       const dateField = Object.entries(data).find(([key, val]) =>
-        key.toLowerCase().includes('date') && typeof val === 'string' && val.includes('||')
+        key.toLowerCase().includes('date') && typeof val === 'string' && val.trim() !== ''
       )
       if (dateField) {
-        const dates = dateField[1].split('||').map(d => d.trim()).filter(Boolean)
+        // Split on || for multiselect, or treat as single date
+        const dates = dateField[1].includes('||')
+          ? dateField[1].split('||').map(d => d.trim()).filter(Boolean)
+          : [dateField[1].trim()].filter(Boolean)
         
-        // Count if person selected all available dates
-        const allDatesCount = Object.keys(stats.dateBreakdown).length + dates.length
-        if (dates.length > 1 && allDatesCount > 2) {
-          const existingDates = Object.keys(stats.dateBreakdown)
-          const allSelected = existingDates.length > 0 && existingDates.every(d => dates.includes(d))
-          if (allSelected && dates.length === existingDates.length) {
-            stats.selectedAllDatesCount += 1
-          }
-        }
-        
-        dates.forEach((date, idx) => {
+        dates.forEach(date => {
           if (!stats.dateBreakdown[date]) {
             stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
           }
           stats.dateBreakdown[date].count += 1
-          // For headcount: add full count only to last date to avoid duplication
-          // This shows "potential headcount if this date is chosen"
-          if (idx === dates.length - 1) {
-            stats.dateBreakdown[date].adults += Math.max(0, adultCount)
-            stats.dateBreakdown[date].children += Math.max(0, childCount)
-          }
+          // Add full headcount to every date this person is available for
+          stats.dateBreakdown[date].adults += adultCount
+          stats.dateBreakdown[date].children += childCount
         })
       }
       
@@ -112,24 +102,13 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date: only consider dates with actual headcount (adults > 0 or children > 0)
-    let maxVotes = 0
-    let maxAvailability = 0
+    // Find winning date: most availability count, tiebreak by first-choice votes
+    let maxCount = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
-      // Only consider dates with headcount
-      if (data.adults > 0 || data.children > 0) {
-        // Check first-choice votes first
-        if (data.firstChoiceVotes > maxVotes) {
-          maxVotes = data.firstChoiceVotes
-          stats.preferredDate = date
-          stats.preferredDateHeadcount = data.adults + data.children
-        }
-        // Fall back to availability count if no first-choice votes
-        if (maxVotes === 0 && data.count > maxAvailability) {
-          maxAvailability = data.count
-          stats.preferredDate = date
-          stats.preferredDateHeadcount = data.adults + data.children
-        }
+      if (data.count > maxCount || (data.count === maxCount && data.firstChoiceVotes > (stats.dateBreakdown[stats.preferredDate]?.firstChoiceVotes || 0))) {
+        maxCount = data.count
+        stats.preferredDate = date
+        stats.preferredDateHeadcount = data.adults + data.children
       }
     })
     
@@ -307,8 +286,8 @@ export default function SuppliersClient({
             )
           })()}
 
-          {/* Date Breakdown - Only show if dates were found */}
-          {Object.keys(summary.dateBreakdown).length > 1 && (
+          {/* Date Breakdown - Show for any dates found */}
+          {Object.keys(summary.dateBreakdown).length > 0 && (
             <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 md:px-6 py-4">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Date Breakdown</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
