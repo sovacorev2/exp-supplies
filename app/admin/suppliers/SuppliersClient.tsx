@@ -26,59 +26,6 @@ export default function SuppliersClient({
   const [deleteError, setDeleteError] = useState('')
   const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
 
-  // Load excluded dates from database
-  useEffect(() => {
-    if (!formId) return
-    
-    const loadExcludedDates = async () => {
-      try {
-        const response = await fetch(`/api/forms/${formId}/excluded-dates`)
-        if (response.ok) {
-          const data = await response.json()
-          setExcludedDates(new Set(data.excludedDates || []))
-        }
-      } catch (error) {
-        console.error('[v0] Error loading excluded dates:', error)
-      }
-    }
-    
-    loadExcludedDates()
-  }, [formId])
-
-  // Load excluded dates from API on mount
-  useEffect(() => {
-    const loadExcludedDates = async () => {
-      try {
-        const res = await fetch(`/api/excluded-dates?formId=${formId}`)
-        const data = await res.json()
-        setExcludedDates(new Set(data.excluded || []))
-      } catch (e) {
-        console.error('Failed to load excluded dates')
-      }
-    }
-    if (formId) {
-      loadExcludedDates()
-    }
-  }, [formId])
-
-  // Save excluded dates to API whenever they change
-  useEffect(() => {
-    const saveExcludedDates = async () => {
-      try {
-        await fetch('/api/excluded-dates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formId, excluded: Array.from(excludedDates) })
-        })
-      } catch (e) {
-        console.error('Failed to save excluded dates')
-      }
-    }
-    if (formId && excludedDates.size > 0) {
-      saveExcludedDates()
-    }
-  }, [excludedDates, formId])
-
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
