@@ -85,15 +85,41 @@ export default function SuppliersClient({
           : [dateField[1].trim()].filter(Boolean)
         
         if (dates.length > 0) {
-          dates.forEach(date => {
-            if (!stats.dateBreakdown[date]) {
-              stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
-            }
-            stats.dateBreakdown[date].count += 1
-            // Add full headcount to every date this person is available for
-            stats.dateBreakdown[date].adults += adultCount
-            stats.dateBreakdown[date].children += childCount
-          })
+          // Filter out excluded dates to see what's actually available
+          const availableDates = dates.filter(d => !excludedDates.has(d))
+          
+          if (availableDates.length > 0) {
+            // Has available dates - add to breakdown
+            availableDates.forEach(date => {
+              if (!stats.dateBreakdown[date]) {
+                stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
+              }
+              stats.dateBreakdown[date].count += 1
+              // Add full headcount to every date this person is available for
+              stats.dateBreakdown[date].adults += adultCount
+              stats.dateBreakdown[date].children += childCount
+            })
+          } else {
+            // All selected dates are excluded - treat as cannot attend
+            stats.noneOfTheDates.count += 1
+            stats.noneOfTheDates.adults += adultCount
+            stats.noneOfTheDates.children += childCount
+            
+            // Get respondent name and reason
+            const nameField = Object.entries(data).find(([key]) => 
+              key.toLowerCase().includes('name') || key.toLowerCase().includes('respondent') || key.toLowerCase().includes('person')
+            )
+            const reasonField = Object.entries(data).find(([key]) => 
+              key.toLowerCase().includes('reason') || key.toLowerCase().includes('note') || key.toLowerCase().includes('why')
+            )
+            
+            stats.noneOfTheDates.respondents.push({
+              name: nameField ? String(nameField[1]) : 'Unknown',
+              reason: reasonField ? String(reasonField[1]) : `Selected dates have scheduling conflicts (${dates.join(', ')})`,
+              adults: adultCount,
+              children: childCount
+            })
+          }
         } else {
           // No dates selected - add to "none of the dates"
           stats.noneOfTheDates.count += 1
