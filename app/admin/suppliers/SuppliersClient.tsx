@@ -24,6 +24,7 @@ export default function SuppliersClient({
   const [deletePassword, setDeletePassword] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function SuppliersClient({
       preferredDate: '',
       preferredDateHeadcount: 0,
       selectedAllDatesCount: 0,
+      noneOfTheDates: { count: 0, adults: 0, children: 0, respondents: [] as Array<{ name: string, reason: string, adults: number, children: number }> },
     }
     
     filtered.forEach(sub => {
@@ -75,20 +77,63 @@ export default function SuppliersClient({
       const dateField = Object.entries(data).find(([key, val]) =>
         key.toLowerCase().includes('date') && typeof val === 'string' && val.trim() !== ''
       )
-      if (dateField) {
+      
+      if (dateField && dateField[1].trim()) {
         // Split on || for multiselect, or treat as single date
         const dates = dateField[1].includes('||')
           ? dateField[1].split('||').map(d => d.trim()).filter(Boolean)
           : [dateField[1].trim()].filter(Boolean)
         
-        dates.forEach(date => {
-          if (!stats.dateBreakdown[date]) {
-            stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
-          }
-          stats.dateBreakdown[date].count += 1
-          // Add full headcount to every date this person is available for
-          stats.dateBreakdown[date].adults += adultCount
-          stats.dateBreakdown[date].children += childCount
+        if (dates.length > 0) {
+          dates.forEach(date => {
+            if (!stats.dateBreakdown[date]) {
+              stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
+            }
+            stats.dateBreakdown[date].count += 1
+            // Add full headcount to every date this person is available for
+            stats.dateBreakdown[date].adults += adultCount
+            stats.dateBreakdown[date].children += childCount
+          })
+        } else {
+          // No dates selected - add to "none of the dates"
+          stats.noneOfTheDates.count += 1
+          stats.noneOfTheDates.adults += adultCount
+          stats.noneOfTheDates.children += childCount
+          
+          // Get respondent name and reason
+          const nameField = Object.entries(data).find(([key]) => 
+            key.toLowerCase().includes('name') || key.toLowerCase().includes('respondent') || key.toLowerCase().includes('person')
+          )
+          const reasonField = Object.entries(data).find(([key]) => 
+            key.toLowerCase().includes('reason') || key.toLowerCase().includes('note') || key.toLowerCase().includes('why')
+          )
+          
+          stats.noneOfTheDates.respondents.push({
+            name: nameField ? String(nameField[1]) : 'Unknown',
+            reason: reasonField ? String(reasonField[1]) : 'No reason provided',
+            adults: adultCount,
+            children: childCount
+          })
+        }
+      } else {
+        // No date field or empty date field - add to "none of the dates"
+        stats.noneOfTheDates.count += 1
+        stats.noneOfTheDates.adults += adultCount
+        stats.noneOfTheDates.children += childCount
+        
+        // Get respondent name and reason
+        const nameField = Object.entries(data).find(([key]) => 
+          key.toLowerCase().includes('name') || key.toLowerCase().includes('respondent') || key.toLowerCase().includes('person')
+        )
+        const reasonField = Object.entries(data).find(([key]) => 
+          key.toLowerCase().includes('reason') || key.toLowerCase().includes('note') || key.toLowerCase().includes('why')
+        )
+        
+        stats.noneOfTheDates.respondents.push({
+          name: nameField ? String(nameField[1]) : 'Unknown',
+          reason: reasonField ? String(reasonField[1]) : 'No reason provided',
+          adults: adultCount,
+          children: childCount
         })
       }
       
@@ -102,18 +147,20 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date: most availability count, tiebreak by first-choice votes
+    // Find winning date: most availability count, tiebreak by first-choice votes (exclude conflict dates)
     let maxCount = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
-      if (data.count > maxCount || (data.count === maxCount && data.firstChoiceVotes > (stats.dateBreakdown[stats.preferredDate]?.firstChoiceVotes || 0))) {
-        maxCount = data.count
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
+      if (!excludedDates.has(date)) {
+        if (data.count > maxCount || (data.count === maxCount && data.firstChoiceVotes > (stats.dateBreakdown[stats.preferredDate]?.firstChoiceVotes || 0))) {
+          maxCount = data.count
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
       }
     })
     
     return stats
-  }, [filtered])
+  }, [filtered, excludedDates])
 
 
 
@@ -286,6 +333,26 @@ export default function SuppliersClient({
             )
           })()}
 
+          {/* None of the dates section */}
+          {summary.noneOfTheDates.count > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 md:px-6 py-4">
+              <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-3">Cannot Attend Any Date</p>
+              <div className="flex gap-4 text-sm text-red-700 dark:text-red-300 mb-3">
+                <span><strong>{summary.noneOfTheDates.count}</strong> respondent{summary.noneOfTheDates.count !== 1 ? 's' : ''}</span>
+                {summary.noneOfTheDates.adults > 0 && <span><strong>{summary.noneOfTheDates.adults}</strong> adults</span>}
+                {summary.noneOfTheDates.children > 0 && <span><strong>{summary.noneOfTheDates.children}</strong> children</span>}
+              </div>
+              <div className="space-y-2 text-sm">
+                {summary.noneOfTheDates.respondents.map((resp, idx) => (
+                  <div key={idx} className="bg-white/50 dark:bg-gray-800/50 rounded p-2 border-l-2 border-red-300 dark:border-red-700">
+                    <p className="font-semibold text-red-900 dark:text-red-100">{resp.name} {resp.adults > 0 || resp.children > 0 ? `(${resp.adults + resp.children} people)` : ''}</p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">{resp.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Date Breakdown - Show for any dates found */}
           {Object.keys(summary.dateBreakdown).length > 0 && (
             <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 md:px-6 py-4">
@@ -295,11 +362,33 @@ export default function SuppliersClient({
                   .filter(([, stats]) => stats.count > 0)
                   .sort((a, b) => b[1].firstChoiceVotes - a[1].firstChoiceVotes)
                   .map(([date, stats]) => (
-                    <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
-                      <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
+                    <div key={date} className={`bg-white dark:bg-gray-800 rounded p-3 border ${excludedDates.has(date) ? 'border-red-300 dark:border-red-700 opacity-50' : 'border-gray-200 dark:border-gray-600'}`}>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
+                          <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                            <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
+                            <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newExcluded = new Set(excludedDates)
+                            if (newExcluded.has(date)) {
+                              newExcluded.delete(date)
+                            } else {
+                              newExcluded.add(date)
+                            }
+                            setExcludedDates(newExcluded)
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
+                            excludedDates.has(date)
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {excludedDates.has(date) ? 'Undo' : 'Exclude'}
+                        </button>
                       </div>
                     </div>
                   ))}
