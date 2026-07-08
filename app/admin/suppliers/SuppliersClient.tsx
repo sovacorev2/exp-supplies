@@ -24,6 +24,7 @@ export default function SuppliersClient({
   const [deletePassword, setDeletePassword] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
 
   // Auto-refresh every 10 seconds for real-time updates
   useEffect(() => {
@@ -102,18 +103,20 @@ export default function SuppliersClient({
       }
     })
     
-    // Find winning date: most availability count, tiebreak by first-choice votes
+    // Find winning date: most availability count, tiebreak by first-choice votes (exclude conflict dates)
     let maxCount = 0
     Object.entries(stats.dateBreakdown).forEach(([date, data]) => {
-      if (data.count > maxCount || (data.count === maxCount && data.firstChoiceVotes > (stats.dateBreakdown[stats.preferredDate]?.firstChoiceVotes || 0))) {
-        maxCount = data.count
-        stats.preferredDate = date
-        stats.preferredDateHeadcount = data.adults + data.children
+      if (!excludedDates.has(date)) {
+        if (data.count > maxCount || (data.count === maxCount && data.firstChoiceVotes > (stats.dateBreakdown[stats.preferredDate]?.firstChoiceVotes || 0))) {
+          maxCount = data.count
+          stats.preferredDate = date
+          stats.preferredDateHeadcount = data.adults + data.children
+        }
       }
     })
     
     return stats
-  }, [filtered])
+  }, [filtered, excludedDates])
 
 
 
@@ -295,11 +298,33 @@ export default function SuppliersClient({
                   .filter(([, stats]) => stats.count > 0)
                   .sort((a, b) => b[1].firstChoiceVotes - a[1].firstChoiceVotes)
                   .map(([date, stats]) => (
-                    <div key={date} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
-                      <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
-                        <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
+                    <div key={date} className={`bg-white dark:bg-gray-800 rounded p-3 border ${excludedDates.has(date) ? 'border-red-300 dark:border-red-700 opacity-50' : 'border-gray-200 dark:border-gray-600'}`}>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{date}</p>
+                          <div className="space-y-1 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                            <div><strong className="text-gray-900 dark:text-gray-100">{stats.count}</strong> available {stats.firstChoiceVotes > 0 && <span>| <strong className="text-blue-600 dark:text-blue-400">{stats.firstChoiceVotes}</strong> 1st choice</span>}</div>
+                            <div><strong className="text-gray-900 dark:text-gray-100">{stats.adults}</strong> adults, <strong className="text-gray-900 dark:text-gray-100">{stats.children}</strong> children</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newExcluded = new Set(excludedDates)
+                            if (newExcluded.has(date)) {
+                              newExcluded.delete(date)
+                            } else {
+                              newExcluded.add(date)
+                            }
+                            setExcludedDates(newExcluded)
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${
+                            excludedDates.has(date)
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {excludedDates.has(date) ? 'Undo' : 'Exclude'}
+                        </button>
                       </div>
                     </div>
                   ))}
