@@ -317,9 +317,10 @@ export default function SuppliersClient({
           {/* Winning Date Alert - Always show if dates exist */}
           {summary.preferredDate && (() => {
             const winningDateData = summary.dateBreakdown[summary.preferredDate]
+            const hasExcludedDates = excludedDates.size > 0
             return (
               <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-3">
-                <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Winning Date (Most Selections)</p>
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Winning Date (Most Selections){hasExcludedDates && ' - Excluding Conflicts'}</p>
                 <p className="text-lg font-bold text-amber-900 dark:text-amber-100">{summary.preferredDate}</p>
                 <div className="flex gap-4 mt-2 text-sm text-amber-700 dark:text-amber-300">
                   {winningDateData?.firstChoiceVotes > 0 && (
@@ -329,6 +330,9 @@ export default function SuppliersClient({
                     <span><strong>{summary.preferredDateHeadcount}</strong> headcount</span>
                   )}
                 </div>
+                {hasExcludedDates && (
+                  <p className="text-xs mt-2 text-amber-600 dark:text-amber-500">({excludedDates.size} date{excludedDates.size !== 1 ? 's' : ''} excluded from calculation)</p>
+                )}
               </div>
             )
           })()}
