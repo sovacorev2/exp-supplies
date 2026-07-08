@@ -269,7 +269,7 @@ export default function SuppliersClient({
   }
 
   return (
-    <>
+    <div className="h-full flex flex-col overflow-y-auto">
       <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between flex-shrink-0 shadow-sm gap-3">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <h1 className="font-semibold text-gray-900 dark:text-gray-100 text-base md:text-lg">Responses</h1>
@@ -618,6 +618,6 @@ export default function SuppliersClient({
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }
