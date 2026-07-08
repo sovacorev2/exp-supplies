@@ -52,6 +52,7 @@ export default function SuppliersClient({
       preferredDate: '',
       preferredDateHeadcount: 0,
       selectedAllDatesCount: 0,
+      noneOfTheDates: { count: 0, adults: 0, children: 0 },
     }
     
     filtered.forEach(sub => {
@@ -76,21 +77,34 @@ export default function SuppliersClient({
       const dateField = Object.entries(data).find(([key, val]) =>
         key.toLowerCase().includes('date') && typeof val === 'string' && val.trim() !== ''
       )
-      if (dateField) {
+      
+      if (dateField && dateField[1].trim()) {
         // Split on || for multiselect, or treat as single date
         const dates = dateField[1].includes('||')
           ? dateField[1].split('||').map(d => d.trim()).filter(Boolean)
           : [dateField[1].trim()].filter(Boolean)
         
-        dates.forEach(date => {
-          if (!stats.dateBreakdown[date]) {
-            stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
-          }
-          stats.dateBreakdown[date].count += 1
-          // Add full headcount to every date this person is available for
-          stats.dateBreakdown[date].adults += adultCount
-          stats.dateBreakdown[date].children += childCount
-        })
+        if (dates.length > 0) {
+          dates.forEach(date => {
+            if (!stats.dateBreakdown[date]) {
+              stats.dateBreakdown[date] = { count: 0, adults: 0, children: 0, firstChoiceVotes: 0 }
+            }
+            stats.dateBreakdown[date].count += 1
+            // Add full headcount to every date this person is available for
+            stats.dateBreakdown[date].adults += adultCount
+            stats.dateBreakdown[date].children += childCount
+          })
+        } else {
+          // No dates selected - add to "none of the dates"
+          stats.noneOfTheDates.count += 1
+          stats.noneOfTheDates.adults += adultCount
+          stats.noneOfTheDates.children += childCount
+        }
+      } else {
+        // No date field or empty date field - add to "none of the dates"
+        stats.noneOfTheDates.count += 1
+        stats.noneOfTheDates.adults += adultCount
+        stats.noneOfTheDates.children += childCount
       }
       
       // Track first choice votes
@@ -288,6 +302,18 @@ export default function SuppliersClient({
               </div>
             )
           })()}
+
+          {/* None of the dates section */}
+          {summary.noneOfTheDates.count > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 md:px-6 py-3">
+              <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2">Cannot Attend Any Date</p>
+              <div className="flex gap-4 text-sm text-red-700 dark:text-red-300">
+                <span><strong>{summary.noneOfTheDates.count}</strong> respondent{summary.noneOfTheDates.count !== 1 ? 's' : ''}</span>
+                {summary.noneOfTheDates.adults > 0 && <span><strong>{summary.noneOfTheDates.adults}</strong> adults</span>}
+                {summary.noneOfTheDates.children > 0 && <span><strong>{summary.noneOfTheDates.children}</strong> children</span>}
+              </div>
+            </div>
+          )}
 
           {/* Date Breakdown - Show for any dates found */}
           {Object.keys(summary.dateBreakdown).length > 0 && (
