@@ -64,7 +64,6 @@ export const forms = pgTable('forms', {
   fields: jsonb('fields').notNull().default([]),
   is_active: boolean('is_active').notNull().default(true),
   slug: text('slug').notNull().unique(),
-  excluded_dates: jsonb('excluded_dates').notNull().default([]),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 })
