@@ -429,9 +429,9 @@ export default function SuppliersClient({
       )}
 
       {/* Main content area - Table takes full width */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex-1 relative">
         {/* Table section */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 border-b-2 border-gray-200 dark:border-gray-600">
               <tr className="hidden md:table-row">
