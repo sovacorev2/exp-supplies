@@ -52,7 +52,7 @@ export default function SuppliersClient({
       preferredDate: '',
       preferredDateHeadcount: 0,
       selectedAllDatesCount: 0,
-      noneOfTheDates: { count: 0, adults: 0, children: 0 },
+      noneOfTheDates: { count: 0, adults: 0, children: 0, respondents: [] as Array<{ name: string, reason: string, adults: number, children: number }> },
     }
     
     filtered.forEach(sub => {
@@ -99,12 +99,42 @@ export default function SuppliersClient({
           stats.noneOfTheDates.count += 1
           stats.noneOfTheDates.adults += adultCount
           stats.noneOfTheDates.children += childCount
+          
+          // Get respondent name and reason
+          const nameField = Object.entries(data).find(([key]) => 
+            key.toLowerCase().includes('name') || key.toLowerCase().includes('respondent') || key.toLowerCase().includes('person')
+          )
+          const reasonField = Object.entries(data).find(([key]) => 
+            key.toLowerCase().includes('reason') || key.toLowerCase().includes('note') || key.toLowerCase().includes('why')
+          )
+          
+          stats.noneOfTheDates.respondents.push({
+            name: nameField ? String(nameField[1]) : 'Unknown',
+            reason: reasonField ? String(reasonField[1]) : 'No reason provided',
+            adults: adultCount,
+            children: childCount
+          })
         }
       } else {
         // No date field or empty date field - add to "none of the dates"
         stats.noneOfTheDates.count += 1
         stats.noneOfTheDates.adults += adultCount
         stats.noneOfTheDates.children += childCount
+        
+        // Get respondent name and reason
+        const nameField = Object.entries(data).find(([key]) => 
+          key.toLowerCase().includes('name') || key.toLowerCase().includes('respondent') || key.toLowerCase().includes('person')
+        )
+        const reasonField = Object.entries(data).find(([key]) => 
+          key.toLowerCase().includes('reason') || key.toLowerCase().includes('note') || key.toLowerCase().includes('why')
+        )
+        
+        stats.noneOfTheDates.respondents.push({
+          name: nameField ? String(nameField[1]) : 'Unknown',
+          reason: reasonField ? String(reasonField[1]) : 'No reason provided',
+          adults: adultCount,
+          children: childCount
+        })
       }
       
       // Track first choice votes
@@ -305,12 +335,20 @@ export default function SuppliersClient({
 
           {/* None of the dates section */}
           {summary.noneOfTheDates.count > 0 && (
-            <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 md:px-6 py-3">
-              <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2">Cannot Attend Any Date</p>
-              <div className="flex gap-4 text-sm text-red-700 dark:text-red-300">
+            <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 md:px-6 py-4">
+              <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-3">Cannot Attend Any Date</p>
+              <div className="flex gap-4 text-sm text-red-700 dark:text-red-300 mb-3">
                 <span><strong>{summary.noneOfTheDates.count}</strong> respondent{summary.noneOfTheDates.count !== 1 ? 's' : ''}</span>
                 {summary.noneOfTheDates.adults > 0 && <span><strong>{summary.noneOfTheDates.adults}</strong> adults</span>}
                 {summary.noneOfTheDates.children > 0 && <span><strong>{summary.noneOfTheDates.children}</strong> children</span>}
+              </div>
+              <div className="space-y-2 text-sm">
+                {summary.noneOfTheDates.respondents.map((resp, idx) => (
+                  <div key={idx} className="bg-white/50 dark:bg-gray-800/50 rounded p-2 border-l-2 border-red-300 dark:border-red-700">
+                    <p className="font-semibold text-red-900 dark:text-red-100">{resp.name} {resp.adults > 0 || resp.children > 0 ? `(${resp.adults + resp.children} people)` : ''}</p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">{resp.reason}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
