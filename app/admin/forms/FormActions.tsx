@@ -4,6 +4,10 @@ import { useState } from 'react'
 import { Copy, Check, Pause, Play, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+declare global {
+  interface Window { __reloadForms?: () => void }
+}
+
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'exp.admin'
 
 export default function FormActions({
@@ -18,6 +22,7 @@ export default function FormActions({
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [toggleError, setToggleError] = useState('')
+  const [currentActive, setCurrentActive] = useState(isActive)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
@@ -36,12 +41,14 @@ export default function FormActions({
       const res = await fetch(`/api/forms/${formId}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !isActive }),
+        body: JSON.stringify({ is_active: !currentActive }),
       })
       if (res.ok) {
-        router.refresh()
+        // Optimistic update - flip the icon immediately without full page refresh
+        setCurrentActive(prev => !prev)
       } else {
-        setToggleError('Failed to toggle form')
+        const data = await res.json()
+        setToggleError(data.error || 'Failed to toggle form')
       }
     } catch (error) {
       setToggleError('Error toggling form')
@@ -60,9 +67,7 @@ export default function FormActions({
     try {
       const res = await fetch(`/api/forms/${formId}`, { method: 'DELETE' })
       if (res.ok) {
-        router.refresh()
-        setDeleteConfirm(false)
-        setDeletePassword('')
+        window.location.href = `/admin/forms?auth=true`
       }
     } finally {
       setLoading(false)
@@ -83,9 +88,9 @@ export default function FormActions({
           onClick={handleToggle}
           disabled={loading}
           className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-amber-600 transition-colors"
-          title={isActive ? 'Pause form' : 'Resume form'}
+          title={currentActive ? 'Pause form' : 'Resume form'}
         >
-          {isActive ? <Pause size={13} /> : <Play size={13} />}
+          {currentActive ? <Pause size={13} /> : <Play size={13} />}
         </button>
         <button
           onClick={() => setDeleteConfirm(true)}
