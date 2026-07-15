@@ -17,6 +17,7 @@ export default function FormActions({
 }) {
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [toggleError, setToggleError] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
@@ -30,13 +31,23 @@ export default function FormActions({
 
   async function handleToggle() {
     setLoading(true)
-    await fetch(`/api/forms/${formId}/toggle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_active: !isActive }),
-    })
-    setLoading(false)
-    router.refresh()
+    setToggleError('')
+    try {
+      const res = await fetch(`/api/forms/${formId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !isActive }),
+      })
+      if (res.ok) {
+        router.refresh()
+      } else {
+        setToggleError('Failed to toggle form')
+      }
+    } catch (error) {
+      setToggleError('Error toggling form')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleDelete() {
