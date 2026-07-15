@@ -5,6 +5,26 @@ import { eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const { is_active } = await request.json()
+    
+    await db
+      .update(forms)
+      .set({ is_active })
+      .where(eq(forms.id, id))
+    
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[v0] Error updating form:', error)
+    return NextResponse.json({ error: 'Failed to update form' }, { status: 500 })
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

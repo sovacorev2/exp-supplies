@@ -33,8 +33,8 @@ export default function FormActions({
     setLoading(true)
     setToggleError('')
     try {
-      const res = await fetch(`/api/forms/${formId}/toggle`, {
-        method: 'POST',
+      const res = await fetch(`/api/forms/${formId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !isActive }),
       })
