@@ -234,7 +234,7 @@ export async function getSharedFormData(token: string) {
 
   return {
     form: formRows[0],
-    submissions: formSubmissions.map(s => ({
+    submissions: formSubmissions.map((s: any) => ({
       ...s,
       data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
     })),
