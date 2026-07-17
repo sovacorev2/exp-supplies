@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Pause, Play, Trash2 } from 'lucide-react'
+import { Copy, Check, Pause, Play, Trash2, Share2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 declare global {
@@ -23,6 +23,11 @@ export default function FormActions({
   const [loading, setLoading] = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [currentActive, setCurrentActive] = useState(isActive)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareLink, setShareLink] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
+  const [shareError, setShareError] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
@@ -32,6 +37,33 @@ export default function FormActions({
     await navigator.clipboard.writeText(`${window.location.origin}${formUrl}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function generateShareLink() {
+    setShareLoading(true)
+    setShareError('')
+    try {
+      const res = await fetch(`/api/forms/${formId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setShareLink(data.shareLink)
+      } else {
+        setShareError(data.error || 'Failed to generate share link')
+      }
+    } catch (error) {
+      setShareError('Error generating share link')
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  function copyShareLink() {
+    navigator.clipboard.writeText(shareLink)
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2000)
   }
 
   async function handleToggle() {
@@ -93,6 +125,13 @@ export default function FormActions({
           {currentActive ? <Pause size={13} /> : <Play size={13} />}
         </button>
         <button
+          onClick={() => setShareOpen(true)}
+          className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-green-600 transition-colors"
+          title="Share responses"
+        >
+          <Share2 size={13} />
+        </button>
+        <button
           onClick={() => setDeleteConfirm(true)}
           className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-red-600 transition-colors"
           title="Delete form"
@@ -100,6 +139,56 @@ export default function FormActions({
           <Trash2 size={13} />
         </button>
       </div>
+
+      {shareOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Share Responses</h3>
+            {!shareLink ? (
+              <>
+                <p className="text-sm text-gray-600 mb-4">Generate a shareable link for these form responses. The link will be valid for 7 days.</p>
+                <button
+                  onClick={generateShareLink}
+                  disabled={shareLoading}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  {shareLoading ? 'Generating...' : 'Generate Share Link'}
+                </button>
+                {shareError && <p className="text-sm text-red-600 mt-2">{shareError}</p>}
+              </>
+            ) : (
+              <>
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                  <input
+                    type="text"
+                    value={shareLink}
+                    readOnly
+                    className="w-full text-sm font-mono bg-transparent text-gray-700 outline-none"
+                  />
+                </div>
+                <button
+                  onClick={copyShareLink}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                >
+                  {shareCopied ? <Check size={16} /> : <Copy size={16} />}
+                  {shareCopied ? 'Copied!' : 'Copy Link'}
+                </button>
+                <p className="text-xs text-gray-500 mt-3 text-center">Anyone with this link can view the responses without a password (7 days).</p>
+              </>
+            )}
+            <button
+              onClick={() => {
+                setShareOpen(false)
+                setShareLink('')
+                setShareError('')
+              }}
+              className="w-full mt-4 px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
