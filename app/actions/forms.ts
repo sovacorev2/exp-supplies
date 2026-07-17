@@ -1,8 +1,9 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions } from '@/lib/db/schema'
+import { forms, submissions, shareTokens } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { randomBytes } from 'crypto'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
 
