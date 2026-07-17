@@ -33,6 +33,8 @@ export default function SharedResponsesClient({
       totalAdults: 0,
       totalChildren: 0,
       totalResponses: submissions.length,
+      hasAdultField: false,
+      hasChildField: false,
     }
 
     submissions.forEach(submission => {
@@ -42,15 +44,21 @@ export default function SharedResponsesClient({
       const adultField = Object.entries(data).find(([key]) => 
         key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))
       )
-      const adultCount = adultField ? parseInt(String(adultField[1])) || 0 : 0
-      stats.totalAdults += Math.max(0, adultCount)
+      if (adultField) {
+        stats.hasAdultField = true
+        const adultCount = parseInt(String(adultField[1])) || 0
+        stats.totalAdults += Math.max(0, adultCount)
+      }
 
       // Count children
       const childField = Object.entries(data).find(([key]) => 
         key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number'))
       )
-      const childCount = childField ? parseInt(String(childField[1])) || 0 : 0
-      stats.totalChildren += Math.max(0, childCount)
+      if (childField) {
+        stats.hasChildField = true
+        const childCount = parseInt(String(childField[1])) || 0
+        stats.totalChildren += Math.max(0, childCount)
+      }
     })
 
     return stats
@@ -80,19 +88,23 @@ export default function SharedResponsesClient({
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className={`grid gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 grid-cols-1 ${summary.hasAdultField || summary.hasChildField ? 'md:grid-cols-3' : 'md:grid-cols-1'}`}>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-4">
               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Total Responses</p>
               <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{summary.totalResponses}</p>
             </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded p-4">
-              <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">Total Adults</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{summary.totalAdults}</p>
-            </div>
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded p-4">
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total Children</p>
-              <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1">{summary.totalChildren}</p>
-            </div>
+            {summary.hasAdultField && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded p-4">
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">Total Adults</p>
+                <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{summary.totalAdults}</p>
+              </div>
+            )}
+            {summary.hasChildField && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded p-4">
+                <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total Children</p>
+                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1">{summary.totalChildren}</p>
+              </div>
+            )}
           </div>
 
           {/* Expiry warning */}
