@@ -1,8 +1,9 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions } from '@/lib/db/schema'
+import { forms, submissions, shareTokens } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { randomBytes } from 'crypto'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
 
@@ -205,6 +206,41 @@ export async function deleteSubmission(id: string): Promise<void> {
 }
 
 
+
+// ── Share tokens ────────────────────────────────────────────────────────
+
+export async function createShareToken(formId: string): Promise<string> {
+  const token = randomBytes(16).toString('hex')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  await db.insert(shareTokens).values({
+    form_id: formId,
+    token,
+    expires_at: expiresAt,
+  })
+  return token
+}
+
+export async function getSharedFormData(token: string) {
+  const records = await db.select().from(shareTokens).where(eq(shareTokens.token, token)).limit(1)
+  if (!records.length) return { error: 'invalid' }
+
+  const record = records[0]
+  if (new Date(record.expires_at) < new Date()) return { error: 'expired' }
+
+  const formRows = await db.select().from(forms).where(eq(forms.id, record.form_id)).limit(1)
+  if (!formRows.length) return { error: 'not_found' }
+
+  const formSubmissions = await db.select().from(submissions).where(eq(submissions.form_id, record.form_id))
+
+  return {
+    form: formRows[0],
+    submissions: formSubmissions.map(s => ({
+      ...s,
+      data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
+    })),
+    expiresAt: record.expires_at,
+  }
+}
 
 // ── Dashboard stats ────────────────────────────────────────────────────
 
