@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { updateForm, deleteForm, getForms, type FormField, type FieldType } from '@/app/actions/forms'
 import { Plus, Trash2, GripVertical, ExternalLink, AlertCircle, Check } from 'lucide-react'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableField } from '@/components/sortable-field'
 
 const CATEGORIES = [
   'General', 'Tents & Shelter', 'Electronics & AV', 'Food & Catering',
@@ -57,6 +60,21 @@ export default function EditFormPage() {
   const [editLabel, setEditLabel] = useState('')
   const [editType, setEditType] = useState<FieldType>('text')
   const [editRequired, setEditRequired] = useState(true)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setFields(currentFields => {
+      const oldIndex = currentFields.findIndex(field => field.id === active.id)
+      const newIndex = currentFields.findIndex(field => field.id === over.id)
+      return oldIndex === -1 || newIndex === -1 ? currentFields : arrayMove(currentFields, oldIndex, newIndex)
+    })
+  }
 
   useEffect(() => {
     async function loadForm() {
@@ -268,86 +286,64 @@ export default function EditFormPage() {
                 <h2 className="font-bold text-base text-gray-900 dark:text-white">Form fields ({fields.length})</h2>
               </div>
               <div className="p-4 space-y-2">
-                {fields.map((f: FormField) => (
-                  editingField === f.id ? (
-                    <div key={f.id} className="p-4 bg-brand-50 rounded-lg border-2 border-brand-200 space-y-3">
-                      <div>
-                        <label className="label">Label</label>
-                        <input 
-                          className="input" 
-                          value={editLabel} 
-                          onChange={e => setEditLabel(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="label">Type</label>
-                          <select 
-                            className="input" 
-                            value={editType} 
-                            onChange={e => setEditType(e.target.value as FieldType)}
-                          >
-                            {FIELD_TYPES.map(t => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex items-end">
-                          <label className="flex items-center gap-2 cursor-pointer w-full mb-2">
-                            <input 
-                              type="checkbox" 
-                              checked={editRequired} 
-                              onChange={e => setEditRequired(e.target.checked)}
-                              className="rounded"
-                            />
-                            <span className="text-sm text-gray-600">Required</span>
-                          </label>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={saveEditField}
-                          className="flex-1 btn bg-brand-500 text-white hover:bg-brand-600 text-xs py-1.5"
-                        >
-                          <Check size={14} /> Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingField(null)}
-                          className="flex-1 btn text-xs py-1.5"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      key={f.id}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 group cursor-pointer"
-                      onClick={() => startEditField(f)}
-                    >
-                      <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {FIELD_TYPES.find(t => t.value === f.type)?.label}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={e => {
-                          e.stopPropagation()
-                          removeField(f.id)
-                        }}
-                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg"
-                        title="Delete field"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )
-                ))}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={fields.map(field => field.id)} strategy={verticalListSortingStrategy}>
+                    {fields.map((f: FormField) => (
+                      <SortableField key={f.id} id={f.id}>
+                        {({ attributes, listeners, isDragging }) => (
+                          editingField === f.id ? (
+                            <div className="p-4 bg-brand-50 rounded-lg border-2 border-brand-200 space-y-3">
+                              <div>
+                                <label className="label">Label</label>
+                                <input className="input" value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus />
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="label">Type</label>
+                                  <select className="input" value={editType} onChange={e => setEditType(e.target.value as FieldType)}>
+                                    {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex items-end">
+                                  <label className="flex items-center gap-2 cursor-pointer w-full mb-2">
+                                    <input type="checkbox" checked={editRequired} onChange={e => setEditRequired(e.target.checked)} className="rounded" />
+                                    <span className="text-sm text-gray-600">Required</span>
+                                  </label>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={saveEditField} className="flex-1 btn bg-brand-500 text-white hover:bg-brand-600 text-xs py-1.5"><Check size={14} /> Save</button>
+                                <button onClick={() => setEditingField(null)} className="flex-1 btn text-xs py-1.5">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 group ${isDragging ? 'opacity-70 shadow-lg ring-2 ring-brand-500' : ''}`}>
+                              <button
+                                type="button"
+                                className="touch-none cursor-grab rounded p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 active:cursor-grabbing"
+                                aria-label={`Move question ${f.label}`}
+                                title="Press and drag to reorder"
+                                {...attributes}
+                                {...listeners}
+                              >
+                                <GripVertical size={18} />
+                              </button>
+                              <button type="button" className="flex-1 min-w-0 text-left" onClick={() => startEditField(f)}>
+                                <p className="text-sm font-medium truncate">
+                                  {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
+                                </p>
+                                <p className="text-xs text-gray-400">{FIELD_TYPES.find(t => t.value === f.type)?.label}</p>
+                              </button>
+                              <button onClick={() => removeField(f.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg" title="Delete field">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </SortableField>
+                    ))}
+                  </SortableContext>
+                </DndContext>
                 {fields.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-8">No fields yet - add one on the right</p>
                 )}
