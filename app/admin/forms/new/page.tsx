@@ -7,6 +7,9 @@ import { useRouter } from 'next/navigation'
 import { createForm, type FormField, type FieldType } from '@/app/actions/forms'
 import { generateSlug } from '@/lib/utils'
 import { Plus, Trash2, GripVertical, ExternalLink, Copy } from 'lucide-react'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableField } from '@/components/sortable-field'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text',     label: 'Short text' },
@@ -49,6 +52,21 @@ export default function NewFormPage() {
   const [newMaxValue, setNewMaxValue] = useState('')
   const [newMinLength, setNewMinLength] = useState('')
   const [newMaxLength, setNewMaxLength] = useState('')
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setFields(currentFields => {
+      const oldIndex = currentFields.findIndex(field => field.id === active.id)
+      const newIndex = currentFields.findIndex(field => field.id === over.id)
+      return oldIndex === -1 || newIndex === -1 ? currentFields : arrayMove(currentFields, oldIndex, newIndex)
+    })
+  }
 
   function addSection() {
     if (!newSectionName.trim()) return
@@ -200,42 +218,61 @@ export default function NewFormPage() {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">({fields.length} fields added)</p>
             </div>
             <div className="p-4 md:p-6 space-y-3">
-              {fields.map((f: FormField) => (
-                f.section === 'SECTION_HEADER' ? (
-                  <div key={f.id} className="mt-6 mb-3 pt-4 border-t-2 border-brand-200 dark:border-brand-800 group">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{f.label}</h3>
-                      <button 
-                        onClick={() => removeField(f.id)} 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400"
-                        title="Delete section"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={f.id} className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group">
-                    <GripVertical size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                        {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {FIELD_TYPES.find(t => t.value === f.type)?.label}
-                        {f.placeholder && ` • "${f.placeholder}"`}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => removeField(f.id)} 
-                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg"
-                      title="Delete field"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={fields.map(field => field.id)} strategy={verticalListSortingStrategy}>
+                  {fields.map((f: FormField) => (
+                    <SortableField key={f.id} id={f.id}>
+                      {({ attributes, listeners, isDragging }) => (
+                        f.section === 'SECTION_HEADER' ? (
+                          <div className={`mt-6 mb-3 pt-4 border-t-2 border-brand-200 dark:border-brand-800 group ${isDragging ? 'opacity-70 shadow-lg' : ''}`}>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="touch-none cursor-grab rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 active:cursor-grabbing dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                                aria-label={`Move section ${f.label}`}
+                                title="Press and drag to reorder"
+                                {...attributes}
+                                {...listeners}
+                              >
+                                <GripVertical size={18} />
+                              </button>
+                              <h3 className="flex-1 text-lg font-bold text-gray-900 dark:text-white">{f.label}</h3>
+                              <button onClick={() => removeField(f.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400" title="Delete section">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600 group ${isDragging ? 'opacity-70 shadow-lg ring-2 ring-brand-500' : ''}`}>
+                            <button
+                              type="button"
+                              className="touch-none cursor-grab rounded p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 active:cursor-grabbing dark:hover:bg-gray-600 dark:hover:text-gray-200"
+                              aria-label={`Move question ${f.label}`}
+                              title="Press and drag to reorder"
+                              {...attributes}
+                              {...listeners}
+                            >
+                              <GripVertical size={18} />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                {f.label} {f.required && <span className="text-brand-500 font-bold">*</span>}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {FIELD_TYPES.find(t => t.value === f.type)?.label}
+                                {f.placeholder && ` • "${f.placeholder}"`}
+                              </p>
+                            </div>
+                            <button onClick={() => removeField(f.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg" title="Delete field">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </SortableField>
+                  ))}
+                </SortableContext>
+              </DndContext>
               {fields.length === 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12 font-medium">No fields yet - add one below</p>
               )}
