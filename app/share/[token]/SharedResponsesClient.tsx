@@ -118,34 +118,47 @@ export default function SharedResponsesClient({
         </div>
 
         {/* Responses List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Responses ({submissions.length})</h2>
-          </div>
-
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {submissions.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <p className="text-gray-500 dark:text-gray-400">No responses yet</p>
-              </div>
-            ) : (
-              submissions.map((submission, idx) => (
-                <div key={submission.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="font-medium text-gray-900 dark:text-white">Response #{idx + 1}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(submission.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded p-4 text-sm">
-                    <pre className="font-mono text-gray-700 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap break-words">
-                      {JSON.stringify(submission.data, null, 2)}
-                    </pre>
-                  </div>
+        <div className="space-y-6">
+          {submissions.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm px-6 py-12 text-center">
+              <p className="text-gray-500 dark:text-gray-400">No responses yet</p>
+            </div>
+          ) : (
+            submissions.map((submission, idx) => (
+              <div key={submission.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Response #{idx + 1}</h3>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {new Date(submission.created_at).toLocaleString()}
+                  </span>
                 </div>
-              ))
-            )}
-          </div>
+                <div className="px-6 py-4 space-y-6">
+                  {form.fields && form.fields.length > 0 ? (
+                    form.fields.map((field: any, fieldIdx: number) => {
+                      const answer = submission.data?.[field.label] || submission.data?.[field.id] || ''
+                      return (
+                        <div key={fieldIdx} className="border-l-4 border-blue-500 dark:border-blue-400 pl-4">
+                          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                            {field.label}
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </p>
+                          <p className="text-gray-900 dark:text-gray-200 whitespace-pre-wrap break-words">
+                            {typeof answer === 'object' ? JSON.stringify(answer, null, 2) : String(answer || '—')}
+                          </p>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded p-4">
+                      <pre className="font-mono text-gray-700 dark:text-gray-300 text-sm overflow-x-auto whitespace-pre-wrap break-words">
+                        {JSON.stringify(submission.data, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
