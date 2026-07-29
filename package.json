@@ -22,7 +22,8 @@
     "next": "16.2.9",
     "pg": "^8.21.0",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^20",

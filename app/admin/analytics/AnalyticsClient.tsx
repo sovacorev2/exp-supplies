@@ -1,0 +1,235 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { BarChart2, List, Download, Search, RefreshCw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import type { Form, Submission } from '@/app/actions/forms'
+import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
+import {
+  StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
+} from '@/components/analytics/AnalyticsCharts'
+
+// ── Status pill ──────────────────────────────────────────────────────────────
+const PILL: Record<string, string> = {
+  pending:  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  approved: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+  rejected: 'bg-red-100  text-red-800  dark:bg-red-900/40  dark:text-red-300',
+}
+
+export default function AnalyticsClient({
+  allForms,
+  allSubmissions,
+}: {
+  allForms: Form[]
+  allSubmissions: Submission[]
+}) {
+  const router    = useRouter()
+  const [view,    setView]    = useState<'list' | 'analytics'>('analytics')
+  const [search,  setSearch]  = useState('')
+  const [formId,  setFormId]  = useState('')
+
+  const filtered = useMemo(() => {
+    return allSubmissions.filter(s => {
+      const text       = Object.values(s.data as any).join(' ').toLowerCase()
+      const matchSearch = !search || text.includes(search.toLowerCase())
+      const matchForm   = !formId || s.form_id === formId
+      return matchSearch && matchForm
+    })
+  }, [allSubmissions, search, formId])
+
+  const selectedForm = formId ? allForms.find(f => f.id === formId) : null
+  const overview     = useMemo(() => computeOverview(filtered), [filtered])
+
+  // ── List view ────────────────────────────────────────────────────────────
+  function ListView() {
+    return (
+      <div className="overflow-x-auto">
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center text-gray-400">No responses match your filters</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b-2 border-gray-200 dark:border-gray-700">
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Form</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Preview</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => {
+                const preview = Object.values(s.data as any).slice(0, 2).join(' · ') || '—'
+                const date    = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                return (
+                  <tr key={s.id} className="border-b border-gray-100 dark:border-gray-700/60 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{s.forms?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">{preview}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${PILL[s.status] ?? ''}`}>{s.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{date}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    )
+  }
+
+  // ── Overview ─────────────────────────────────────────────────────────────
+  function OverviewView() {
+    return (
+      <div className="p-5 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatTile label="Total responses" value={overview.totalResponses} />
+          <StatTile label="Pending"         value={overview.pending} />
+          <StatTile label="Approved"        value={overview.approved} />
+          <StatTile label="Rejected"        value={overview.rejected} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <ChartCard title="Responses by form" meta={`${allForms.length} forms`} tableRows={overview.byForm}>
+            <BarList data={overview.byForm} highlightMax />
+          </ChartCard>
+          <ChartCard title="Responses in the last 14 days" meta="By submission date" tableRows={overview.byDay}>
+            <BarList data={overview.byDay} />
+          </ChartCard>
+        </div>
+        <div className="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/60 dark:bg-brand-900/20 px-5 py-3 text-[13px] text-brand-700 dark:text-brand-300">
+          Pick a single form above to see a question-by-question breakdown with charts tailored to each field type.
+        </div>
+      </div>
+    )
+  }
+
+  // ── Per-form analytics ───────────────────────────────────────────────────
+  function FormAnalyticsView({ form }: { form: Form }) {
+    const formSubs  = filtered.filter(s => s.form_id === form.id)
+    const radarAxes = computeRatingRadar(form.fields, formSubs)
+
+    if (!formSubs.length) {
+      return (
+        <div className="p-5">
+          <div className="py-20 text-center">
+            <p className="font-bold text-lg text-gray-900 dark:text-white">No responses yet</p>
+            <p className="text-sm text-gray-400 mt-1">Analytics will appear once this form receives responses.</p>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="p-5 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatTile label="Total responses" value={formSubs.length} />
+          <StatTile label="Questions"       value={form.fields.filter(f => f.section !== 'SECTION_HEADER').length} />
+          <StatTile label="Category"        value={form.category} />
+          <StatTile label="Status"          value={form.is_active ? 'Live' : 'Paused'} />
+        </div>
+
+        {radarAxes && (
+          <ChartCard
+            title="Ratings at a glance"
+            meta="Average score per rating question"
+            tableRows={radarAxes.map(a => ({ label: a.label, value: `${a.avg.toFixed(1)} / ${a.max}` }))}
+            tableValueHeader="Average"
+          >
+            <RadarChart axes={radarAxes} />
+          </ChartCard>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {form.fields
+            .filter(f => f.section !== 'SECTION_HEADER')
+            .map(field => (
+              <FieldCard
+                key={field.id}
+                field={field}
+                result={analyzeField(field, formSubs)}
+              />
+            ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="bg-brand-600 dark:bg-brand-700 border-b border-brand-700 px-4 md:px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="font-bold text-xl text-white">Analytics</h1>
+          <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+            {filtered.length} responses
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Tab switcher */}
+          <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+            <button
+              onClick={() => setView('analytics')}
+              className={`flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors ${view === 'analytics' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
+            >
+              <BarChart2 size={14} /> Analytics
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
+            >
+              <List size={14} /> List
+            </button>
+          </div>
+          <button
+            onClick={() => exportCSV(filtered)}
+            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Download size={14} /> Export CSV
+          </button>
+          <button
+            onClick={() => router.refresh()}
+            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} />
+          </button>
+        </div>
+      </header>
+
+      {/* Filters */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search responses…"
+            className="w-full pl-8 pr-3 py-2 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+          />
+        </div>
+        <select
+          value={formId}
+          onChange={e => setFormId(e.target.value)}
+          className="flex-1 sm:max-w-xs py-2 px-3 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+        >
+          <option value="">All forms</option>
+          {allForms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+        <div className="flex-shrink-0 text-[13px] font-bold px-4 py-2 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 self-center whitespace-nowrap">
+          {filtered.length} shown
+        </div>
+      </div>
+
+      {/* Body */}
+      <main className="flex-1 overflow-y-auto">
+        {view === 'list' ? (
+          <ListView />
+        ) : selectedForm ? (
+          <FormAnalyticsView form={selectedForm} />
+        ) : (
+          <OverviewView />
+        )}
+      </main>
+    </div>
+  )
+}
