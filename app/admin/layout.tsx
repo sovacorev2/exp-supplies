@@ -7,16 +7,17 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, FileText, PlusCircle, LogOut, Loader, Moon, Sun
+  LayoutDashboard, FileText, PlusCircle, LogOut, Loader, Moon, Sun, BarChart2
 } from 'lucide-react'
 import clsx from 'clsx'
 import MobileNav from '@/components/MobileNav'
 
 
 const nav = [
-  { label: 'Dashboard',    href: '/admin',             icon: LayoutDashboard },
-  { label: 'Forms',        href: '/admin/forms',        icon: FileText,  section: 'Forms' },
-  { label: 'New form',     href: '/admin/forms/new',    icon: PlusCircle },
+  { label: 'Dashboard',    href: '/admin',                icon: LayoutDashboard },
+  { label: 'Forms',        href: '/admin/forms',          icon: FileText,   section: 'Forms' },
+  { label: 'New form',     href: '/admin/forms/new',      icon: PlusCircle },
+  { label: 'Analytics',   href: '/admin/analytics',      icon: BarChart2,  section: 'Analytics' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
