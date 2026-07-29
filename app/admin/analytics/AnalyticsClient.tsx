@@ -9,12 +9,6 @@ import {
   StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
 } from '@/components/analytics/AnalyticsCharts'
 
-// ── Status pill ──────────────────────────────────────────────────────────────
-const PILL: Record<string, string> = {
-  pending:  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-  approved: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  rejected: 'bg-red-100  text-red-800  dark:bg-red-900/40  dark:text-red-300',
-}
 
 export default function AnalyticsClient({
   allForms,
@@ -50,22 +44,28 @@ export default function AnalyticsClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-gray-200 dark:border-gray-700">
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">#</th>
                 <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Form</th>
-                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Preview</th>
-                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">First answer</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fields answered</th>
                 <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Submitted</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(s => {
-                const preview = Object.values(s.data as any).slice(0, 2).join(' · ') || '—'
-                const date    = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              {filtered.map((s, idx) => {
+                const answers      = Object.values(s.data as Record<string, unknown>).filter(Boolean)
+                const firstAnswer  = String(answers[0] ?? '—').slice(0, 80)
+                const fieldsCount  = answers.length
+                const date         = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 return (
                   <tr key={s.id} className="border-b border-gray-100 dark:border-gray-700/60 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="px-4 py-3 text-gray-400 dark:text-gray-500 tabular-nums">{filtered.length - idx}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{s.forms?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">{preview}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">{firstAnswer}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${PILL[s.status] ?? ''}`}>{s.status}</span>
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                        {fieldsCount} field{fieldsCount !== 1 ? 's' : ''}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{date}</td>
                   </tr>
@@ -84,9 +84,9 @@ export default function AnalyticsClient({
       <div className="p-5 space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatTile label="Total responses" value={overview.totalResponses} />
-          <StatTile label="Pending"         value={overview.pending} />
-          <StatTile label="Approved"        value={overview.approved} />
-          <StatTile label="Rejected"        value={overview.rejected} />
+          <StatTile label="Active forms"    value={overview.activeForms} />
+          <StatTile label="Forms"           value={allForms.length} />
+          <StatTile label="Avg per form"    value={allForms.length ? Math.round(overview.totalResponses / allForms.length) : 0} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <ChartCard title="Responses by form" meta={`${allForms.length} forms`} tableRows={overview.byForm}>

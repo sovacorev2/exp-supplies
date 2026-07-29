@@ -14,9 +14,7 @@ export type RadarAxis = { label: string; avg: number; min: number; max: number; 
 
 export type OverviewData = {
   totalResponses: number
-  pending: number
-  approved: number
-  rejected: number
+  activeForms: number
   byForm: Bucket[]
   byDay: Bucket[]
 }
@@ -152,9 +150,7 @@ export function computeOverview(subs: Submission[]): OverviewData {
 
   return {
     totalResponses: subs.length,
-    pending:        subs.filter(s => s.status === 'pending').length,
-    approved:       subs.filter(s => s.status === 'approved').length,
-    rejected:       subs.filter(s => s.status === 'rejected').length,
+    activeForms:    formCounts.size,
     byForm:         foldToOther(formCounts, 8),
     byDay:          Array.from(dayCounts.entries()).map(([iso, value]) => ({ label: days.get(iso)!, value })),
   }
