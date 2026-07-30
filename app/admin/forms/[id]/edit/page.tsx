@@ -66,6 +66,7 @@ export default function EditFormPage() {
   const [editSuboptionsRequired, setEditSuboptionsRequired] = useState(false)
   const [editSuboptionsMap, setEditSuboptionsMap] = useState<Record<string, string>>({})
   const [editAcceptedFileTypes, setEditAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
+  const [addingSection, setAddingSection] = useState(false)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -150,6 +151,19 @@ export default function EditFormPage() {
     setNewAcceptedFileTypes('image/jpeg,image/png,image/webp')
   }
 
+  function addSectionHeader() {
+    if (!newLabel.trim()) return
+    const sectionField: FormField = {
+      id: uid(),
+      label: newLabel.trim(),
+      type: 'text' as FieldType,
+      section: 'SECTION_HEADER',
+      required: false,
+    }
+    setFields(prev => [...prev, sectionField])
+    setNewLabel('')
+  }
+
   function removeField(id: string) {
     setFields(prev => prev.filter(f => f.id !== id))
   }
@@ -184,11 +198,21 @@ export default function EditFormPage() {
     setEditAcceptedFileTypes(field.acceptedFileTypes?.join(',') || 'image/jpeg,image/png,image/webp')
   }
 
+  function startEditSectionHeader(field: FormField) {
+    setEditingField(field.id)
+    setEditLabel(field.label)
+    setEditType('text')
+    setEditRequired(false)
+  }
+
   function saveEditField() {
     if (!editLabel.trim()) return
     
+    const editingFieldObj = fields.find(f => f.id === editingField)
+    const isSectionHeader = editingFieldObj?.section === 'SECTION_HEADER'
+    
     let options: (string | { label: string; suboptions?: string[] })[] | undefined
-    if (editType === 'select' || editType === 'multiselect') {
+    if (!isSectionHeader && (editType === 'select' || editType === 'multiselect')) {
       const baseOptions = editOptions.split('\n').map(s => s.trim()).filter(Boolean)
       if (editHasSuboptions) {
         options = baseOptions.map(opt => ({
@@ -202,17 +226,19 @@ export default function EditFormPage() {
 
     setFields(prev => prev.map(f =>
       f.id === editingField
-        ? {
-            ...f,
-            label: editLabel.trim(),
-            type: editType,
-            required: editRequired,
-            placeholder: editPlaceholder || undefined,
-            options: options,
-            hasSuboptions: editHasSuboptions || undefined,
-            suboptionsRequired: editHasSuboptions ? editSuboptionsRequired : undefined,
-            acceptedFileTypes: editType === 'upload' ? editAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
-          }
+        ? isSectionHeader
+          ? { ...f, label: editLabel.trim() }
+          : {
+              ...f,
+              label: editLabel.trim(),
+              type: editType,
+              required: editRequired,
+              placeholder: editPlaceholder || undefined,
+              options: options,
+              hasSuboptions: editHasSuboptions || undefined,
+              suboptionsRequired: editHasSuboptions ? editSuboptionsRequired : undefined,
+              acceptedFileTypes: editType === 'upload' ? editAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
+            }
         : f
     ))
     setEditingField(null)
@@ -346,6 +372,16 @@ export default function EditFormPage() {
                         {({ attributes, listeners, isDragging }) => (
                           editingField === f.id ? (
                             <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg border-2 border-brand-200 dark:border-brand-800 space-y-3 max-h-96 overflow-y-auto">
+                              {f.section === 'SECTION_HEADER' ? (
+                                <>
+                                  <p className="text-xs font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wider">Section Header</p>
+                                  <div>
+                                    <label className="label">Section title</label>
+                                    <input className="input" value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus placeholder="e.g. General Information" />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
                               <div>
                                 <label className="label">Label</label>
                                 <input className="input" value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus />
@@ -405,11 +441,30 @@ export default function EditFormPage() {
                                   <input className="input" value={editAcceptedFileTypes} onChange={e => setEditAcceptedFileTypes(e.target.value)} placeholder="image/jpeg,image/png,image/webp" />
                                 </div>
                               )}
+                                </>
+                              )}
                               
                               <div className="flex gap-2 pt-2">
                                 <button onClick={saveEditField} className="flex-1 btn bg-brand-500 text-white hover:bg-brand-600 text-xs py-1.5"><Check size={14} /> Save</button>
                                 <button onClick={() => setEditingField(null)} className="flex-1 btn text-xs py-1.5">Cancel</button>
                               </div>
+                            </div>
+                          ) : f.section === 'SECTION_HEADER' ? (
+                            <div className={`flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors border border-blue-200 dark:border-blue-800 group ${isDragging ? 'opacity-70 shadow-lg ring-2 ring-blue-400' : ''}`}>
+                              <button
+                                type="button"
+                                className="touch-none cursor-grab rounded p-2 text-gray-400 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:cursor-grabbing"
+                                aria-label={`Move section ${f.label}`}
+                                title="Press and drag to reorder"
+                                {...attributes}
+                                {...listeners}
+                              >
+                                <GripVertical size={18} />
+                              </button>
+                              <button type="button" className="flex-1 min-w-0 text-left" onClick={() => startEditSectionHeader(f)}>
+                                <p className="text-sm font-bold text-blue-700 dark:text-blue-400">{f.label}</p>
+                                <p className="text-xs text-blue-500 dark:text-blue-400">Section header</p>
+                              </button>
                             </div>
                           ) : (
                             <div className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 group ${isDragging ? 'opacity-70 shadow-lg ring-2 ring-brand-500' : ''}`}>
@@ -447,7 +502,9 @@ export default function EditFormPage() {
           </div>
 
           <div className="w-full lg:col-span-2 card p-5 md:p-6 space-y-4 lg:sticky lg:top-0">
-            <h2 className="font-bold text-base md:text-lg">Add a field</h2>
+            <h2 className="font-bold text-base md:text-lg">{addingSection ? 'Add Section Header' : 'Add a field'}</h2>
+            {!addingSection && (
+              <>
             <div>
               <label className="label">Field label</label>
               <input 
@@ -589,14 +646,55 @@ export default function EditFormPage() {
                 <p className="text-xs text-purple-600 dark:text-purple-400">Hold Ctrl/Cmd to select multiple types</p>
               </div>
             )}
+              </>
+            )}
 
-            <button 
-              onClick={addField} 
-              disabled={!newLabel.trim()} 
-              className="btn btn-primary w-full justify-center text-xs py-2"
-            >
-              <Plus size={15} /> Add field
-            </button>
+            {addingSection ? (
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
+                <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">Add Section Header</p>
+                <div>
+                  <label className="label">Section title</label>
+                  <input 
+                    className="input" 
+                    value={newLabel} 
+                    onChange={e => setNewLabel(e.target.value)} 
+                    placeholder="e.g. General Information"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={addSectionHeader} 
+                    disabled={!newLabel.trim()} 
+                    className="flex-1 btn bg-blue-500 text-white hover:bg-blue-600 text-xs py-2"
+                  >
+                    <Plus size={14} /> Add Section
+                  </button>
+                  <button 
+                    onClick={() => { setAddingSection(false); setNewLabel('') }} 
+                    className="flex-1 btn text-xs py-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button 
+                  onClick={() => setAddingSection(true)} 
+                  className="btn w-full justify-center text-xs py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                >
+                  + Add Section Header
+                </button>
+                <button 
+                  onClick={addField} 
+                  disabled={!newLabel.trim()} 
+                  className="btn btn-primary w-full justify-center text-xs py-2"
+                >
+                  <Plus size={15} /> Add Field
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
