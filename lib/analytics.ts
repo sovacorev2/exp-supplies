@@ -156,21 +156,47 @@ export function computeOverview(subs: Submission[]): OverviewData {
   }
 }
 
-export function exportCSV(subs: Submission[]): void {
+export function exportCSV(subs: Submission[], form?: any): void {
   if (!subs.length) return
-  const keys = Array.from(new Set(subs.flatMap(s => Object.keys(s.data as any))))
+  
+  // Build headers in form order, including section headers
+  const headers: string[] = ['Form']
+  const fieldKeys: string[] = []
+  
+  if (form?.fields && Array.isArray(form.fields)) {
+    form.fields.forEach((field: any) => {
+      if (field.section === 'SECTION_HEADER') {
+        headers.push(field.label)
+        fieldKeys.push(`__section__${field.id}`)
+      } else {
+        headers.push(field.label)
+        fieldKeys.push(field.label)
+      }
+    })
+  } else {
+    // Fallback: extract all keys from submissions
+    const keys = Array.from(new Set(subs.flatMap(s => Object.keys(s.data as any))))
+    fieldKeys.push(...keys)
+    headers.push(...keys)
+  }
+  
+  headers.push('Submitted')
+  
   const rows = [
-    ['Form', ...keys, 'Status', 'Submitted'],
+    headers,
     ...subs.map(s => [
       s.forms?.name ?? '',
-      ...keys.map(k => (s.data as any)[k] ?? ''),
-      s.status,
+      ...fieldKeys.map(k => {
+        if (k.startsWith('__section__')) return '' // Section headers have no data
+        return (s.data as any)?.[k] ?? ''
+      }),
       new Date(s.created_at).toISOString().slice(0, 16).replace('T', ' '),
     ]),
   ]
+  
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-  const a   = document.createElement('a')
-  a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
   a.download = 'responses.csv'
   a.click()
 }

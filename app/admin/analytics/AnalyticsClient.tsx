@@ -164,16 +164,23 @@ export default function AnalyticsClient({
           </ChartCard>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {form.fields
-            .filter(f => f.section !== 'SECTION_HEADER')
-            .map(field => (
+        <div className="space-y-4">
+          {form.fields.map(field => {
+            if (field.section === 'SECTION_HEADER') {
+              return (
+                <div key={field.id} className="mt-6 mb-4 pt-4 border-t-2 border-brand-200 dark:border-brand-800">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{field.label}</h3>
+                </div>
+              )
+            }
+            return (
               <FieldCard
                 key={field.id}
                 field={field}
                 result={analyzeField(field, formSubs)}
               />
-            ))}
+            )
+          })}
         </div>
       </div>
     )
@@ -215,7 +222,7 @@ export default function AnalyticsClient({
             </button>
           </div>
           <button
-            onClick={() => exportCSV(filtered)}
+            onClick={() => exportCSV(filtered, selectedForm)}
             className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
           >
             <Download size={14} /> Export CSV

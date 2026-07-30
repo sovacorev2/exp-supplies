@@ -13,7 +13,7 @@ export default function SharedAnalyticsClient({ token }: { token: string }) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`/api/analytics/${token}/fetch`)
+        const res = await fetch(`/api/analytics/token/${token}/fetch`)
         if (res.status === 410) {
           setError('This analytics link has expired')
           return
