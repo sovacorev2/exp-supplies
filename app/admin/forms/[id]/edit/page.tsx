@@ -60,6 +60,12 @@ export default function EditFormPage() {
   const [editLabel, setEditLabel] = useState('')
   const [editType, setEditType] = useState<FieldType>('text')
   const [editRequired, setEditRequired] = useState(true)
+  const [editPlaceholder, setEditPlaceholder] = useState('')
+  const [editOptions, setEditOptions] = useState('')
+  const [editHasSuboptions, setEditHasSuboptions] = useState(false)
+  const [editSuboptionsRequired, setEditSuboptionsRequired] = useState(false)
+  const [editSuboptionsMap, setEditSuboptionsMap] = useState<Record<string, string>>({})
+  const [editAcceptedFileTypes, setEditAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -153,13 +159,60 @@ export default function EditFormPage() {
     setEditLabel(field.label)
     setEditType(field.type)
     setEditRequired(field.required)
+    setEditPlaceholder(field.placeholder || '')
+    setEditHasSuboptions(field.hasSuboptions || false)
+    setEditSuboptionsRequired(field.suboptionsRequired || false)
+    
+    if (field.options) {
+      const optionsArray = field.options.map((opt: any) => typeof opt === 'string' ? opt : opt.label).join('\n')
+      setEditOptions(optionsArray)
+      
+      if (field.hasSuboptions && typeof field.options[0] === 'object') {
+        const suboptMap: Record<string, string> = {}
+        field.options.forEach((opt: any) => {
+          if (typeof opt === 'object' && opt.suboptions) {
+            suboptMap[opt.label] = opt.suboptions.join('\n')
+          }
+        })
+        setEditSuboptionsMap(suboptMap)
+      }
+    } else {
+      setEditOptions('')
+      setEditSuboptionsMap({})
+    }
+    
+    setEditAcceptedFileTypes(field.acceptedFileTypes?.join(',') || 'image/jpeg,image/png,image/webp')
   }
 
   function saveEditField() {
     if (!editLabel.trim()) return
+    
+    let options: (string | { label: string; suboptions?: string[] })[] | undefined
+    if (editType === 'select' || editType === 'multiselect') {
+      const baseOptions = editOptions.split('\n').map(s => s.trim()).filter(Boolean)
+      if (editHasSuboptions) {
+        options = baseOptions.map(opt => ({
+          label: opt,
+          suboptions: (editSuboptionsMap[opt] || '').split('\n').map(s => s.trim()).filter(Boolean)
+        }))
+      } else {
+        options = baseOptions
+      }
+    }
+
     setFields(prev => prev.map(f =>
       f.id === editingField
-        ? { ...f, label: editLabel.trim(), type: editType, required: editRequired }
+        ? {
+            ...f,
+            label: editLabel.trim(),
+            type: editType,
+            required: editRequired,
+            placeholder: editPlaceholder || undefined,
+            options: options,
+            hasSuboptions: editHasSuboptions || undefined,
+            suboptionsRequired: editHasSuboptions ? editSuboptionsRequired : undefined,
+            acceptedFileTypes: editType === 'upload' ? editAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
+          }
         : f
     ))
     setEditingField(null)
@@ -292,7 +345,7 @@ export default function EditFormPage() {
                       <SortableField key={f.id} id={f.id}>
                         {({ attributes, listeners, isDragging }) => (
                           editingField === f.id ? (
-                            <div className="p-4 bg-brand-50 rounded-lg border-2 border-brand-200 space-y-3">
+                            <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg border-2 border-brand-200 dark:border-brand-800 space-y-3 max-h-96 overflow-y-auto">
                               <div>
                                 <label className="label">Label</label>
                                 <input className="input" value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus />
@@ -307,11 +360,53 @@ export default function EditFormPage() {
                                 <div className="flex items-end">
                                   <label className="flex items-center gap-2 cursor-pointer w-full mb-2">
                                     <input type="checkbox" checked={editRequired} onChange={e => setEditRequired(e.target.checked)} className="rounded" />
-                                    <span className="text-sm text-gray-600">Required</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Required</span>
                                   </label>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
+                              
+                              {(editType === 'text' || editType === 'email' || editType === 'tel' || editType === 'textarea') && (
+                                <div>
+                                  <label className="label">Placeholder</label>
+                                  <input className="input" value={editPlaceholder} onChange={e => setEditPlaceholder(e.target.value)} placeholder="Help text for the user..." />
+                                </div>
+                              )}
+                              
+                              {(editType === 'select' || editType === 'multiselect') && (
+                                <>
+                                  <div>
+                                    <label className="label">Options (one per line)</label>
+                                    <textarea className="input" value={editOptions} onChange={e => setEditOptions(e.target.value)} rows={3} placeholder="Option 1\nOption 2\nOption 3" />
+                                  </div>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={editHasSuboptions} onChange={e => setEditHasSuboptions(e.target.checked)} className="rounded" />
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Has suboptions</span>
+                                  </label>
+                                  {editHasSuboptions && (
+                                    <>
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={editSuboptionsRequired} onChange={e => setEditSuboptionsRequired(e.target.checked)} className="rounded" />
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Suboptions required</span>
+                                      </label>
+                                      {editOptions.split('\n').filter(Boolean).map(opt => (
+                                        <div key={opt}>
+                                          <label className="label text-xs">{opt} suboptions</label>
+                                          <textarea className="input" value={editSuboptionsMap[opt] || ''} onChange={e => setEditSuboptionsMap({...editSuboptionsMap, [opt]: e.target.value})} rows={2} placeholder="Sub 1\nSub 2" />
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
+                                </>
+                              )}
+                              
+                              {editType === 'upload' && (
+                                <div>
+                                  <label className="label">Accepted file types</label>
+                                  <input className="input" value={editAcceptedFileTypes} onChange={e => setEditAcceptedFileTypes(e.target.value)} placeholder="image/jpeg,image/png,image/webp" />
+                                </div>
+                              )}
+                              
+                              <div className="flex gap-2 pt-2">
                                 <button onClick={saveEditField} className="flex-1 btn bg-brand-500 text-white hover:bg-brand-600 text-xs py-1.5"><Check size={14} /> Save</button>
                                 <button onClick={() => setEditingField(null)} className="flex-1 btn text-xs py-1.5">Cancel</button>
                               </div>
