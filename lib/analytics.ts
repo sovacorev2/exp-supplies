@@ -164,12 +164,17 @@ export function exportCSV(subs: Submission[], form?: any): void {
   const fieldKeys: string[] = []
   
   if (form?.fields && Array.isArray(form.fields)) {
+    let currentSection = ''
     form.fields.forEach((field: any) => {
       if (field.section === 'SECTION_HEADER') {
+        currentSection = field.label
         headers.push(field.label)
         fieldKeys.push(`__section__${field.id}`)
       } else {
-        headers.push(field.label)
+        // Prefix with the section name so repeated question labels
+        // across sections (e.g. "Appearance" for each sample) stay
+        // distinguishable once opened in a spreadsheet.
+        headers.push(currentSection ? `${currentSection} - ${field.label}` : field.label)
         fieldKeys.push(field.label)
       }
     })
@@ -181,22 +186,43 @@ export function exportCSV(subs: Submission[], form?: any): void {
   }
   
   headers.push('Submitted')
-  
+
+  // Image/file-upload answers are URLs — turn them into clickable
+  // Excel/Sheets hyperlinks instead of dumping the raw link text.
+  const imageFields = new Set(
+    fieldKeys.filter(k => !k.startsWith('__section__') && /image|photo|product|supply/i.test(k))
+  )
+
   const rows = [
     headers,
     ...subs.map(s => [
       s.forms?.name ?? '',
       ...fieldKeys.map(k => {
         if (k.startsWith('__section__')) return '' // Section headers have no data
-        return (s.data as any)?.[k] ?? ''
+        const val = (s.data as any)?.[k] ?? ''
+        if (imageFields.has(k) && String(val).startsWith('https://')) {
+          return `=HYPERLINK("${String(val).replace(/"/g, '""')}", "View Image")`
+        }
+        return val
       }),
       new Date(s.created_at).toISOString().slice(0, 16).replace('T', ' '),
     ]),
   ]
-  
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+
+  const csv = rows
+    .map(r => r.map(c => {
+      const str = String(c)
+      if (str.startsWith('=HYPERLINK')) return str // formulas must stay unquoted
+      return `"${str.replace(/"/g, '""')}"`
+    }).join(','))
+    .join('\n')
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const now = new Date()
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-  a.download = 'responses.csv'
+  a.download = `responses-${stamp}.csv`
   a.click()
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
 import { Search, Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
+import { exportCSV } from '@/lib/analytics'
 
 export default function SuppliersClient({
   submissions,
@@ -191,47 +192,11 @@ export default function SuppliersClient({
 
 
 
-  function exportCSV() {
-    if (!filtered.length) return
-    const keys = Array.from(new Set(filtered.flatMap((s: Submission) => Object.keys(s.data))))
-    
-    // Detect image fields
-    const imageFields = new Set(
-      keys.filter(k => 
-        k.toLowerCase().includes('image') || 
-        k.toLowerCase().includes('photo') || 
-        k.toLowerCase().includes('product') || 
-        k.toLowerCase().includes('supply')
-      )
-    )
-    
-    const rows: string[][] = [
-      ['Form', ...keys, 'Submitted'],
-      ...filtered.map((s: Submission) => [
-        s.forms?.name ?? '',
-        ...keys.map(k => {
-          const val = s.data[k] ?? ''
-          // For image URLs, wrap in hyperlink formula for Excel/Sheets
-          if (imageFields.has(k) && String(val).startsWith('https://')) {
-            return `=HYPERLINK("${String(val).replace(/"/g, '""')}", "View Image")`
-          }
-          return val
-        }),
-        format(new Date(s.created_at), 'yyyy-MM-dd HH:mm'),
-      ]),
-    ]
-    const csv = rows
-      .map(r => r.map(c => {
-        const str = String(c)
-        // Don't quote hyperlink formulas
-        if (str.startsWith('=HYPERLINK')) return str
-        return `"${str.replace(/"/g, '""')}"`
-      }).join(','))
-      .join('\n')
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `responses-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`
-    a.click()
+  function handleExportCSV() {
+    // Only pass the form definition (for question-order headers) when a
+    // single form is selected — mixed forms have no single field order.
+    const selectedForm = formId ? forms.find((f: Form) => f.id === formId) : undefined
+    exportCSV(filtered, selectedForm)
   }
 
   async function handleDeleteResponse() {
@@ -289,7 +254,7 @@ export default function SuppliersClient({
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
             <span className="ml-2">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
-          <button onClick={exportCSV} className="flex-1 md:flex-none btn text-xs md:text-sm py-2 px-3 md:px-4 inline-flex justify-center" title="Export to CSV">
+          <button onClick={handleExportCSV} className="flex-1 md:flex-none btn text-xs md:text-sm py-2 px-3 md:px-4 inline-flex justify-center" title="Export to CSV">
             <Download size={16} />
             <span className="ml-2">Export</span>
           </button>
