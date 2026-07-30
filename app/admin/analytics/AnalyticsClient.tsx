@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { BarChart2, List, Download, Search, RefreshCw } from 'lucide-react'
+import { BarChart2, List, Download, Search, RefreshCw, Share2, Check, Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Form, Submission } from '@/app/actions/forms'
 import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
@@ -21,6 +21,10 @@ export default function AnalyticsClient({
   const [view,    setView]    = useState<'list' | 'analytics'>('analytics')
   const [search,  setSearch]  = useState('')
   const [formId,  setFormId]  = useState('')
+  const [shareModal, setShareModal] = useState(false)
+  const [shareLink, setShareLink] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -33,6 +37,27 @@ export default function AnalyticsClient({
 
   const selectedForm = formId ? allForms.find(f => f.id === formId) : null
   const overview     = useMemo(() => computeOverview(filtered), [filtered])
+
+  async function generateAnalyticsLink() {
+    if (!selectedForm) return
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/analytics/${selectedForm.id}/share`, { method: 'POST' })
+      const data = await res.json()
+      setShareLink(data.shareLink)
+    } catch (err) {
+      console.error('[v0] Error generating share link:', err)
+      alert('Failed to generate share link')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  function copyToClipboard() {
+    navigator.clipboard.writeText(shareLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   // ── List view ────────────────────────────────────────────────────────────
   function ListView() {
@@ -165,6 +190,15 @@ export default function AnalyticsClient({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {selectedForm && (
+            <button
+              onClick={() => { setShareModal(true); setShareLink(''); generateAnalyticsLink() }}
+              className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-md transition-colors"
+              title="Share analytics with a public link"
+            >
+              <Share2 size={14} /> Share
+            </button>
+          )}
           {/* Tab switcher */}
           <div className="flex bg-black/20 rounded-lg p-1 gap-1">
             <button
@@ -230,6 +264,56 @@ export default function AnalyticsClient({
           <OverviewView />
         )}
       </main>
+
+      {/* Share Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Share Analytics</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Share a read-only link to this form&apos;s analytics. Anyone with the link can view the charts and data (no admin access required).
+            </p>
+            
+            {shareLink ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                  <input
+                    type="text"
+                    value={shareLink}
+                    readOnly
+                    className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white outline-none font-mono"
+                  />
+                  <button
+                    onClick={copyToClipboard}
+                    className="flex-shrink-0 p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    title="Copy to clipboard"
+                  >
+                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-gray-600 dark:text-gray-400" />}
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShareModal(false)}
+                    className="flex-1 btn bg-gray-200 text-gray-900 hover:bg-gray-300 text-sm py-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => window.open(shareLink, '_blank')}
+                    className="flex-1 btn bg-brand-500 text-white hover:bg-brand-600 text-sm py-2"
+                  >
+                    Open
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-brand-500"></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

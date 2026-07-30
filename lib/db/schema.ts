@@ -89,3 +89,13 @@ export const shareTokens = pgTable('share_tokens', {
   created_at: timestamp('created_at').notNull().defaultNow(),
   expires_at: timestamp('expires_at').notNull(),
 })
+
+export const analyticsTokens = pgTable('analytics_tokens', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  expires_at: timestamp('expires_at').notNull(),
+})
