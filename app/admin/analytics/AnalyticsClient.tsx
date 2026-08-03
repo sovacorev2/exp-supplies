@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { BarChart2, List, Download, Search, RefreshCw, Share2, Check, Copy } from 'lucide-react'
+import { BarChart2, List, Download, Search, RefreshCw, Share2, Check, Copy, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import type { Form, Submission } from '@/app/actions/forms'
 import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
 import {
   StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
 } from '@/components/analytics/AnalyticsCharts'
+
+const ReportView = dynamic(() => import('@/components/charts/ReportView'), { ssr: false })
 
 
 export default function AnalyticsClient({
@@ -25,6 +28,7 @@ export default function AnalyticsClient({
   const [shareLink, setShareLink] = useState('')
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showReport, setShowReport] = useState(false)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -221,6 +225,14 @@ export default function AnalyticsClient({
               <List size={14} /> List
             </button>
           </div>
+          {selectedForm && (
+            <button
+              onClick={() => { setShowReport(true); setTimeout(() => window.print(), 100) }}
+              className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <FileText size={14} /> PDF Report
+            </button>
+          )}
           <button
             onClick={() => exportCSV(filtered, selectedForm)}
             className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
@@ -319,6 +331,13 @@ export default function AnalyticsClient({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Hidden Report for Printing */}
+      {showReport && selectedForm && (
+        <div id="report-view" className="hidden print:block">
+          <ReportView form={selectedForm} submissions={filtered} />
         </div>
       )}
     </div>

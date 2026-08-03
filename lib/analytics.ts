@@ -2,12 +2,17 @@ import type { FormField, Submission } from '@/app/actions/forms'
 
 export type Bucket = { label: string; value: number }
 
+export function isPrivateField(label: string): boolean {
+  const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password/i
+  return privatePatterns.test(label)
+}
+
 export type CategoricalResult = { kind: 'categorical'; answered: number; unanswered: number; buckets: Bucket[] }
 export type MultiResult      = { kind: 'multi';        respondents: number; totalSelections: number; buckets: Bucket[] }
 export type BooleanResult    = { kind: 'boolean';      yes: number; no: number; unanswered: number }
 export type NumericResult    = { kind: 'numeric';      answered: number; min: number; max: number; avg: number; median: number; histogram: Bucket[] }
 export type DateResult       = { kind: 'date';         answered: number; unanswered: number; buckets: Bucket[] }
-export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[] }
+export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[]; allAnswers?: string[] }
 export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult
 
 export type RadarAxis = { label: string; avg: number; min: number; max: number; answered: number }
@@ -99,23 +104,23 @@ function analyzeDate(field: FormField, subs: Submission[]): DateResult {
   return { kind: 'date', answered: answers.length, unanswered: subs.length - answers.length, buckets }
 }
 
-function analyzeText(field: FormField, subs: Submission[]): TextResult {
+function analyzeText(field: FormField, subs: Submission[], full: boolean = false): TextResult {
   const answers = answersFor(subs, field.label)
   const counts  = new Map<string, number>()
   answers.forEach(v => counts.set(v, (counts.get(v) ?? 0) + 1))
   const repeated   = Array.from(counts.entries()).filter(([, c]) => c > 1)
   const topAnswers = repeated.length >= 2 ? repeated.sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value })) : []
-  return { kind: 'text', answered: answers.length, total: subs.length, topAnswers, samples: answers.slice(0, 5) }
+  return { kind: 'text', answered: answers.length, total: subs.length, topAnswers, samples: answers.slice(0, 5), allAnswers: full ? answers : undefined }
 }
 
-export function analyzeField(field: FormField, subs: Submission[]): FieldResult {
+export function analyzeField(field: FormField, subs: Submission[], full: boolean = false): FieldResult {
   switch (field.type) {
     case 'select':      return analyzeSelect(field, subs)
     case 'multiselect': return analyzeMulti(field, subs)
     case 'checkbox':    return analyzeBoolean(field, subs)
     case 'number':      return analyzeNumber(field, subs)
     case 'date':        return analyzeDate(field, subs)
-    default:            return analyzeText(field, subs)
+    default:            return analyzeText(field, subs, full)
   }
 }
 
