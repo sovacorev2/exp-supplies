@@ -78,48 +78,23 @@
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
-  html, body {
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
+  html { background: white; }
+  body { background: white; margin: 0; padding: 0; }
 
-  /* Hide EVERYTHING except report-view */
-  body > *:not(#report-view) {
+  /* Hide everything except report */
+  #root, main, .sidebar, header, nav, footer, button, input, select {
     display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
   }
 
-  /* Aggressive hiding of common UI elements */
-  header, nav, footer, aside, .sidebar, .header, .navbar, .footer, .menu, .modal, .dialog, button:not(.print-only), input, select, textarea, [role="navigation"], [role="dialog"], [role="alertdialog"] {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    width: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-  }
-
-  /* Report container takes full page */
   #report-view {
     display: block !important;
-    visibility: visible !important;
     background: white !important;
     color: black !important;
-    width: 100% !important;
-    height: auto !important;
     margin: 0 !important;
-    padding: 20mm !important;
+    padding: 0 !important;
+    width: 100%;
   }
 
   /* Page setup - A4 with proper margins */
