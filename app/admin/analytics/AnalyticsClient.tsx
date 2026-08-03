@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { BarChart2, List, Download, Search, RefreshCw, Share2, Check, Copy, FileText } from 'lucide-react'
+import { useState, useMemo, useRef } from 'react'
+import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Form, Submission } from '@/app/actions/forms'
 import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
+import { exportAnalyticsPDF } from '@/lib/pdf'
 import {
   StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
 } from '@/components/analytics/AnalyticsCharts'
@@ -29,6 +30,8 @@ export default function AnalyticsClient({
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -61,6 +64,20 @@ export default function AnalyticsClient({
     navigator.clipboard.writeText(shareLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleExportPDF() {
+    if (!contentRef.current) return
+    setExportingPdf(true)
+    try {
+      const title = selectedForm ? selectedForm.name : 'All Forms Overview'
+      await exportAnalyticsPDF(contentRef.current, title)
+    } catch (err) {
+      console.error('[v0] Error exporting PDF:', err)
+      alert('Failed to export PDF')
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   // ── List view ────────────────────────────────────────────────────────────
@@ -240,6 +257,14 @@ export default function AnalyticsClient({
             <Download size={14} /> Export CSV
           </button>
           <button
+            onClick={handleExportPDF}
+            disabled={view !== 'analytics' || exportingPdf}
+            title={view !== 'analytics' ? 'Switch to Analytics view to export PDF' : 'Export as PDF'}
+            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <FileDown size={14} /> {exportingPdf ? 'Exporting…' : 'Export PDF'}
+          </button>
+          <button
             onClick={() => router.refresh()}
             className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
             title="Refresh"
@@ -277,10 +302,10 @@ export default function AnalyticsClient({
       <main className="flex-1 overflow-y-auto">
         {view === 'list' ? (
           <ListView />
-        ) : selectedForm ? (
-          <FormAnalyticsView form={selectedForm} />
         ) : (
-          <OverviewView />
+          <div ref={contentRef} className="bg-gray-50 dark:bg-gray-900">
+            {selectedForm ? <FormAnalyticsView form={selectedForm} /> : <OverviewView />}
+          </div>
         )}
       </main>
 
