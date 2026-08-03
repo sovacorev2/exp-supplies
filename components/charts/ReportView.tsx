@@ -66,7 +66,7 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
           const responseRate = Math.round((answered / filteredSubs.length) * 100)
 
           return (
-            <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid">
+            <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
               {/* Question Title */}
               <h3 className="text-xl font-bold text-gray-900 mb-2">{field.label}</h3>
               
@@ -117,10 +117,10 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
               {result.kind === 'text' && (
                 <div className="mt-6">
                   <p className="text-sm text-gray-600 mb-4 font-semibold">All {answered} Responses:</p>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {result.allAnswers?.map((answer, i) => (
-                      <div key={i} className="p-3 bg-gray-50 border-l-4 border-red-600 text-sm">
-                        <p className="text-gray-900">{answer}</p>
+                      <div key={i} className="response-item p-3 bg-gray-50 border-l-4 border-red-600 text-sm rounded">
+                        <p className="text-gray-900 m-0">{answer}</p>
                       </div>
                     ))}
                   </div>
