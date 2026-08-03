@@ -72,3 +72,74 @@
     @apply dark:text-gray-400;
   }
 }
+
+/* Print styles for PDF reports */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  html {
+    background: white;
+  }
+
+  /* Hide all non-report content */
+  header, nav, footer, .analytics-header, .analytics-tabs, .analytics-filters, .analytics-sidebar, button:not(.print-only) {
+    display: none !important;
+  }
+
+  /* Report container */
+  #report-view {
+    display: block !important;
+    max-width: 100% !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Force light mode in print */
+  .dark #report-view,
+  #report-view {
+    color-scheme: light;
+    background: white;
+    color: black;
+  }
+
+  /* A4 sizing */
+  @page {
+    size: A4;
+    margin: 10mm;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Prevent page breaks inside elements */
+  .page-break-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  div, section, article {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure charts render in print */
+  svg {
+    max-width: 100%;
+  }
+
+  /* Table styling for print */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f2f2f2;
+  }
+}
