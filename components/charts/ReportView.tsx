@@ -2,7 +2,9 @@
 
 import type { Form, Submission } from '@/app/actions/forms'
 import { analyzeField, isPrivateField } from '@/lib/analytics'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
+
+const COLORS = ['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316']
 
 export default function ReportView({ form, submissions }: { form: Form; submissions: Submission[] }) {
   const filteredFields = form.fields?.filter((f: any) => !isPrivateField(f.label)) ?? []
@@ -14,53 +16,72 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
   })) as Submission[]
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 bg-white">
-      {/* Header */}
-      <div className="mb-12 pb-8 border-b-2 border-gray-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">EXP</span>
+    <div className="min-h-screen bg-white text-black print:bg-white print:text-black">
+      {/* Page 1: Cover Page */}
+      <div className="w-full h-screen flex flex-col items-center justify-center p-12 page-break-avoid print:page-break-after-always">
+        <div className="text-center">
+          {/* EXP Logo */}
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-red-600 rounded-lg mb-8">
+            <span className="text-white font-bold text-4xl">EXP</span>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{form.name}</h1>
-            <p className="text-sm text-gray-500">{form.description}</p>
+          
+          {/* Title */}
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">{form.name}</h1>
+          
+          {/* Description */}
+          {form.description && (
+            <p className="text-lg text-gray-600 mb-12 max-w-2xl">{form.description}</p>
+          )}
+          
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 gap-8 mt-16 max-w-md mx-auto">
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <p className="text-4xl font-bold text-red-600">{filteredSubs.length}</p>
+              <p className="text-gray-600 text-sm mt-2">Total Responses</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <p className="text-4xl font-bold text-red-600">100%</p>
+              <p className="text-gray-600 text-sm mt-2">Response Rate</p>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-8 text-sm text-gray-600 mt-4">
-          <div>
-            <p className="font-semibold text-gray-900">{submissions.length}</p>
-            <p className="text-gray-500">Total Responses</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">{filteredFields.length}</p>
-            <p className="text-gray-500">Questions</p>
-          </div>
+
+          {/* Date */}
+          <p className="text-gray-500 mt-16 text-sm">Report generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
       </div>
 
-      {/* Analytics Charts */}
-      <div className="space-y-12">
-        {filteredFields.map((field: any) => {
+      {/* Page 2+: Content Pages */}
+      <div className="space-y-0">
+        {filteredFields.map((field: any, fieldIdx) => {
           if (field.section === 'SECTION_HEADER') {
             return (
-              <div key={field.id} className="mt-8 pt-4 border-t-2 border-gray-300">
-                <h2 className="text-2xl font-bold text-gray-900">{field.label}</h2>
+              <div key={field.id} className="w-full p-12 bg-red-50 print:bg-red-50 page-break-avoid print:page-break-before-always">
+                <h2 className="text-3xl font-bold text-red-600">{field.label}</h2>
               </div>
             )
           }
 
           const result = analyzeField(field, filteredSubs, true)
-          const isRequired = field.required ? '*' : ''
+          const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
+          const responseRate = Math.round((answered / filteredSubs.length) * 100)
 
           return (
-            <div key={field.id} className="page-break-avoid">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {field.label} {isRequired}
-              </h3>
+            <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid">
+              {/* Question Title */}
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{field.label}</h3>
+              
+              {/* Response Rate */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="text-sm">
+                  <p className="text-gray-600">Response Rate: <span className="font-semibold text-gray-900">{responseRate}%</span></p>
+                  <p className="text-gray-600">{answered} of {filteredSubs.length} answered</p>
+                </div>
+              </div>
 
+              {/* Chart/Data by Type */}
               {result.kind === 'categorical' && (
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
+                <div className="grid grid-cols-3 gap-8 mt-6">
+                  <div className="col-span-2">
                     <ResponsiveContainer width="100%" height={300}>
                       <RechartsPieChart>
                         <Pie
@@ -69,47 +90,37 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
                           nameKey="label"
                           cx="50%"
                           cy="50%"
-                          outerRadius={100}
-                          label
+                          outerRadius={80}
+                          label={{ fontSize: 12 }}
                         >
-                          {['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'].map((color, i) => (
-                            <Cell key={`cell-${i}`} fill={color} />
+                          {result.buckets.map((_, i) => (
+                            <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip formatter={(value) => `${value} responses`} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 font-semibold">Option</th>
-                          <th className="text-right py-2 font-semibold">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.buckets.map(b => (
-                          <tr key={b.label} className="border-b">
-                            <td className="py-2">{b.label}</td>
-                            <td className="text-right py-2">{b.value}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="col-span-1">
+                    <div className="space-y-2">
+                      {result.buckets.map(b => (
+                        <div key={b.label} className="flex justify-between text-sm">
+                          <span className="text-gray-700">{b.label}</span>
+                          <span className="font-semibold">{b.value}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
               {result.kind === 'text' && (
-                <div>
-                  <div className="mb-4 p-3 bg-gray-100 rounded">
-                    <p className="text-sm text-gray-600">{result.answered} responses</p>
-                  </div>
-                  <div className="space-y-2">
+                <div className="mt-6">
+                  <p className="text-sm text-gray-600 mb-4 font-semibold">All {answered} Responses:</p>
+                  <div className="space-y-3">
                     {result.allAnswers?.map((answer, i) => (
-                      <div key={i} className="p-3 bg-gray-50 border border-gray-200 rounded text-sm">
-                        {answer}
+                      <div key={i} className="p-3 bg-gray-50 border-l-4 border-red-600 text-sm">
+                        <p className="text-gray-900">{answer}</p>
                       </div>
                     ))}
                   </div>
@@ -117,10 +128,10 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
               )}
 
               {result.kind === 'numeric' && (
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={result.histogram}>
+                <div className="grid grid-cols-3 gap-8 mt-6">
+                  <div className="col-span-2">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={result.histogram} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="label" />
                         <YAxis />
@@ -129,39 +140,33 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <div>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-2 font-semibold">Answered</td>
-                          <td className="text-right">{result.answered}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-semibold">Min</td>
-                          <td className="text-right">{result.min.toFixed(2)}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-semibold">Max</td>
-                          <td className="text-right">{result.max.toFixed(2)}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-2 font-semibold">Average</td>
-                          <td className="text-right">{result.avg.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 font-semibold">Median</td>
-                          <td className="text-right">{result.median.toFixed(2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div className="col-span-1 space-y-2">
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="text-xs text-gray-600">Average</p>
+                      <p className="text-2xl font-bold text-gray-900">{result.avg.toFixed(1)}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="text-xs text-gray-600">Median</p>
+                      <p className="text-2xl font-bold text-gray-900">{result.median.toFixed(1)}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-gray-50 p-3 rounded">
+                        <p className="text-xs text-gray-600">Min</p>
+                        <p className="text-lg font-bold text-gray-900">{result.min.toFixed(1)}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <p className="text-xs text-gray-600">Max</p>
+                        <p className="text-lg font-bold text-gray-900">{result.max.toFixed(1)}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
               {result.kind === 'boolean' && (
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <ResponsiveContainer width="100%" height={300}>
+                <div className="grid grid-cols-3 gap-8 mt-6">
+                  <div className="col-span-2">
+                    <ResponsiveContainer width="100%" height={250}>
                       <RechartsPieChart>
                         <Pie
                           data={[
@@ -172,75 +177,58 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
                           nameKey="label"
                           cx="50%"
                           cy="50%"
-                          outerRadius={100}
-                          label
+                          outerRadius={80}
+                          label={{ fontSize: 12 }}
                         >
                           <Cell fill="#16a34a" />
                           <Cell fill="#dc2626" />
                         </Pie>
-                        <Tooltip />
+                        <Tooltip formatter={(value) => `${value} responses`} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-2 font-semibold">Yes</td>
-                          <td className="text-right">{result.yes}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 font-semibold">No</td>
-                          <td className="text-right">{result.no}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div className="col-span-1 space-y-2">
+                    <div className="bg-green-50 p-3 rounded border border-green-200">
+                      <p className="text-xs text-green-700">Yes</p>
+                      <p className="text-2xl font-bold text-green-900">{result.yes}</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded border border-red-200">
+                      <p className="text-xs text-red-700">No</p>
+                      <p className="text-2xl font-bold text-red-900">{result.no}</p>
+                    </div>
                   </div>
                 </div>
               )}
 
               {result.kind === 'multi' && (
-                <div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 font-semibold">Option</th>
-                        <th className="text-right py-2 font-semibold">Selected</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.buckets.map(b => (
-                        <tr key={b.label} className="border-b">
-                          <td className="py-2">{b.label}</td>
-                          <td className="text-right py-2">{b.value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-6 space-y-2">
+                  {result.buckets.map(b => (
+                    <div key={b.label} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <span className="text-sm text-gray-700">{b.label}</span>
+                      <span className="text-sm font-semibold text-gray-900">{b.value} selected</span>
+                    </div>
+                  ))}
                 </div>
               )}
 
               {result.kind === 'date' && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 font-semibold">Date</th>
-                      <th className="text-right py-2 font-semibold">Count</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.buckets.map(b => (
-                      <tr key={b.label} className="border-b">
-                        <td className="py-2">{b.label}</td>
-                        <td className="text-right py-2">{b.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="mt-6 space-y-2">
+                  {result.buckets.map(b => (
+                    <div key={b.label} className="flex justify-between p-2 text-sm border-b border-gray-200">
+                      <span className="text-gray-700">{b.label}</span>
+                      <span className="font-semibold">{b.value}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )
         })}
+      </div>
+
+      {/* Footer */}
+      <div className="w-full p-12 bg-gray-900 text-white text-center text-sm mt-12 page-break-avoid">
+        <p>© EXP {new Date().getFullYear()} • Confidential</p>
       </div>
     </div>
   )
