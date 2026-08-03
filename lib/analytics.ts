@@ -3,7 +3,7 @@ import type { FormField, Submission } from '@/app/actions/forms'
 export type Bucket = { label: string; value: number }
 
 export function isPrivateField(label: string): boolean {
-  const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password/i
+  const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password|why.*choose|why.*select/i
   return privatePatterns.test(label)
 }
 
