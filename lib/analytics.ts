@@ -3,7 +3,7 @@ import type { FormField, Submission } from '@/app/actions/forms'
 export type Bucket = { label: string; value: number }
 
 export function isPrivateField(label: string): boolean {
-  const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password/i
+  const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password|why.*choose|why.*select/i
   return privatePatterns.test(label)
 }
 
@@ -32,37 +32,37 @@ function answersFor(subs: Submission[], key: string): string[] {
   return subs.map(s => (s.data as any)[key]).filter((v): v is string => typeof v === 'string' && v.trim() !== '')
 }
 
-function foldToOther(counts: Map<string, number>, cap: number): Bucket[] {
+function foldToOther(counts: Map<string, number>, cap: number, full: boolean = false): Bucket[] {
   const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
-  if (sorted.length <= cap) return sorted.map(([label, value]) => ({ label, value }))
+  if (full || sorted.length <= cap) return sorted.map(([label, value]) => ({ label, value }))
   const head  = sorted.slice(0, cap - 1)
   const other = sorted.slice(cap - 1).reduce((s, [, v]) => s + v, 0)
   return [...head.map(([label, value]) => ({ label, value })), { label: 'Other', value: other }]
 }
 
-function analyzeSelect(field: FormField, subs: Submission[]): CategoricalResult {
+function analyzeSelect(field: FormField, subs: Submission[], full: boolean = false): CategoricalResult {
   const answers = answersFor(subs, field.label)
   const counts  = new Map<string, number>()
   answers.forEach(v => counts.set(v, (counts.get(v) ?? 0) + 1))
-  return { kind: 'categorical', answered: answers.length, unanswered: subs.length - answers.length, buckets: foldToOther(counts, CATEGORY_CAP) }
+  return { kind: 'categorical', answered: answers.length, unanswered: subs.length - answers.length, buckets: foldToOther(counts, CATEGORY_CAP, full) }
 }
 
-function analyzeMulti(field: FormField, subs: Submission[]): MultiResult {
+function analyzeMulti(field: FormField, subs: Submission[], full: boolean = false): MultiResult {
   const answers = answersFor(subs, field.label)
   const counts  = new Map<string, number>()
   let total = 0
   answers.forEach(v => v.split('||').map(s => s.trim()).filter(Boolean).forEach(opt => {
     counts.set(opt, (counts.get(opt) ?? 0) + 1); total++
   }))
-  return { kind: 'multi', respondents: answers.length, totalSelections: total, buckets: foldToOther(counts, MULTI_CAP) }
+  return { kind: 'multi', respondents: answers.length, totalSelections: total, buckets: foldToOther(counts, MULTI_CAP, full) }
 }
 
-function analyzeBoolean(field: FormField, subs: Submission[]): BooleanResult {
+function analyzeBoolean(field: FormField, subs: Submission[], full: boolean = false): BooleanResult {
   const answers = answersFor(subs, field.label)
   return { kind: 'boolean', yes: answers.filter(v => v === 'true').length, no: answers.filter(v => v === 'false').length, unanswered: subs.length - answers.length }
 }
 
-function analyzeNumber(field: FormField, subs: Submission[]): NumericResult {
+function analyzeNumber(field: FormField, subs: Submission[], full: boolean = false): NumericResult {
   const nums = answersFor(subs, field.label).map(parseFloat).filter(v => !isNaN(v))
   if (!nums.length) return { kind: 'numeric', answered: 0, min: 0, max: 0, avg: 0, median: 0, histogram: [] }
   const sorted = [...nums].sort((a, b) => a - b)
@@ -87,13 +87,13 @@ function analyzeNumber(field: FormField, subs: Submission[]): NumericResult {
   return { kind: 'numeric', answered: nums.length, min, max, avg, median, histogram }
 }
 
-function analyzeDate(field: FormField, subs: Submission[]): DateResult {
+function analyzeDate(field: FormField, subs: Submission[], full: boolean = false): DateResult {
   const answers = answersFor(subs, field.label).flatMap(v => v.includes('||') ? v.split('||').map(d => d.trim()).filter(Boolean) : [v.trim()])
   const counts  = new Map<string, number>()
   answers.forEach(v => counts.set(v, (counts.get(v) ?? 0) + 1))
   const entries = Array.from(counts.entries())
   let buckets: Bucket[]
-  if (entries.length <= DATE_CAP) {
+  if (full || entries.length <= DATE_CAP) {
     buckets = entries.sort((a, b) => a[0].localeCompare(b[0])).map(([label, value]) => ({ label, value }))
   } else {
     const byCount = [...entries].sort((a, b) => b[1] - a[1])
@@ -115,11 +115,11 @@ function analyzeText(field: FormField, subs: Submission[], full: boolean = false
 
 export function analyzeField(field: FormField, subs: Submission[], full: boolean = false): FieldResult {
   switch (field.type) {
-    case 'select':      return analyzeSelect(field, subs)
-    case 'multiselect': return analyzeMulti(field, subs)
-    case 'checkbox':    return analyzeBoolean(field, subs)
-    case 'number':      return analyzeNumber(field, subs)
-    case 'date':        return analyzeDate(field, subs)
+    case 'select':      return analyzeSelect(field, subs, full)
+    case 'multiselect': return analyzeMulti(field, subs, full)
+    case 'checkbox':    return analyzeBoolean(field, subs, full)
+    case 'number':      return analyzeNumber(field, subs, full)
+    case 'date':        return analyzeDate(field, subs, full)
     default:            return analyzeText(field, subs, full)
   }
 }
