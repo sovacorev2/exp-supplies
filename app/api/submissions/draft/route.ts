@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const result = await getDraft(formId, token)
   if ('error' in result) {
-    const status = result.error === 'expired' ? 410 : 404
+    const status = result.error === 'expired' ? 410 : result.error === 'locked' ? 403 : 404
     return NextResponse.json(result, { status })
   }
   return NextResponse.json(result)
