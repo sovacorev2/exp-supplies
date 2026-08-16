@@ -78,6 +78,8 @@ export const submissions = pgTable('submissions', {
   data: jsonb('data').notNull().default({}),
   status: text('status').notNull().default('pending'),
   notes: text('notes'),
+  resume_token: text('resume_token'),
+  expires_at: timestamp('expires_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 })

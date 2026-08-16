@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { forms, submissions, shareTokens, analyticsTokens } from '@/lib/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, ne, and } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 
@@ -61,6 +61,11 @@ export interface Submission {
   created_at: Date
   updated_at: Date
   forms?: Pick<Form, 'name' | 'category' | 'slug'>
+}
+
+export interface Draft {
+  data: Record<string, string>
+  expiresAt: Date
 }
 
 // ── Ownership helpers ──────────────────────────────────────────────────
@@ -194,12 +199,13 @@ export async function getSubmissions(): Promise<Submission[]> {
           .select()
           .from(submissions)
           .leftJoin(forms, eq(submissions.form_id, forms.id))
+          .where(ne(submissions.status, 'draft'))
           .orderBy(desc(submissions.created_at))
       : await db
           .select()
           .from(submissions)
           .leftJoin(forms, eq(submissions.form_id, forms.id))
-          .where(eq(forms.user_id, currentUser.id))
+          .where(and(eq(forms.user_id, currentUser.id), ne(submissions.status, 'draft')))
           .orderBy(desc(submissions.created_at))
 
   return rows.map((row: any) => {
@@ -224,13 +230,82 @@ export async function getSubmissions(): Promise<Submission[]> {
 
 export async function createSubmission(
   formId: string,
-  data: Record<string, string>
+  data: Record<string, string>,
+  resumeToken?: string
 ): Promise<void> {
+  if (resumeToken) {
+    const rows = await db
+      .update(submissions)
+      .set({ data: data as unknown as any, status: 'pending', resume_token: null, expires_at: null })
+      .where(and(
+        eq(submissions.resume_token, resumeToken),
+        eq(submissions.form_id, formId),
+        eq(submissions.status, 'draft')
+      ))
+      .returning({ id: submissions.id })
+    if (rows.length) return
+  }
   await db.insert(submissions).values({
     form_id: formId,
     data: data as unknown as any,
     status: 'pending',
   })
+}
+
+// ── Draft submissions (save & resume later) ───────────────────────────
+
+export async function saveDraft(
+  formId: string,
+  data: Record<string, string>,
+  resumeToken?: string
+): Promise<{ resumeToken: string; expiresAt: Date }> {
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+  if (resumeToken) {
+    const rows = await db
+      .update(submissions)
+      .set({ data: data as unknown as any, expires_at: expiresAt })
+      .where(and(
+        eq(submissions.resume_token, resumeToken),
+        eq(submissions.form_id, formId),
+        eq(submissions.status, 'draft')
+      ))
+      .returning({ id: submissions.id })
+
+    if (rows.length) return { resumeToken, expiresAt }
+    // token stale/expired/already converted elsewhere — fall through, mint a fresh draft
+  }
+
+  const token = randomBytes(16).toString('hex')
+  await db.insert(submissions).values({
+    form_id: formId,
+    data: data as unknown as any,
+    status: 'draft',
+    resume_token: token,
+    expires_at: expiresAt,
+  })
+  return { resumeToken: token, expiresAt }
+}
+
+export async function getDraft(formId: string, resumeToken: string): Promise<Draft | { error: string }> {
+  const rows = await db
+    .select()
+    .from(submissions)
+    .where(and(
+      eq(submissions.resume_token, resumeToken),
+      eq(submissions.form_id, formId),
+      eq(submissions.status, 'draft')
+    ))
+    .limit(1)
+
+  if (!rows.length) return { error: 'invalid' }
+  const row = rows[0] as any
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return { error: 'expired' }
+
+  return {
+    data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data || {},
+    expiresAt: row.expires_at,
+  }
 }
 
 export async function updateSubmissionStatus(
@@ -290,7 +365,10 @@ export async function getSharedFormData(token: string) {
   const formRows = await db.select().from(forms).where(eq(forms.id, record.form_id)).limit(1)
   if (!formRows.length) return { error: 'not_found' }
 
-  const formSubmissions = await db.select().from(submissions).where(eq(submissions.form_id, record.form_id))
+  const formSubmissions = await db
+    .select()
+    .from(submissions)
+    .where(and(eq(submissions.form_id, record.form_id), ne(submissions.status, 'draft')))
 
   return {
     form: formRows[0],
@@ -328,7 +406,10 @@ export async function getAnalyticsData(token: string) {
   const formRows = await db.select().from(forms).where(eq(forms.id, record.form_id)).limit(1)
   if (!formRows.length) return { error: 'not_found' }
 
-  const formSubmissions = await db.select().from(submissions).where(eq(submissions.form_id, record.form_id))
+  const formSubmissions = await db
+    .select()
+    .from(submissions)
+    .where(and(eq(submissions.form_id, record.form_id), ne(submissions.status, 'draft')))
 
   return {
     form: formRows[0],
@@ -351,13 +432,13 @@ export async function getDashboardStats() {
     : await db.select().from(forms).where(eq(forms.user_id, currentUser.id))
 
   const allSubmissions: any[] = isAdmin
-    ? await db.select().from(submissions)
+    ? await db.select().from(submissions).where(ne(submissions.status, 'draft'))
     : (
         await db
           .select()
           .from(submissions)
           .leftJoin(forms, eq(submissions.form_id, forms.id))
-          .where(eq(forms.user_id, currentUser.id))
+          .where(and(eq(forms.user_id, currentUser.id), ne(submissions.status, 'draft')))
       ).map((row: any) => row.submissions)
 
   const categoryCounts: any = {}

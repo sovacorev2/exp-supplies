@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { shareTokens, forms, submissions } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 import SharedResponsesClient from './SharedResponsesClient'
 
 export const dynamic = 'force-dynamic'
@@ -45,7 +45,7 @@ export default async function SharePage({ params }: Props) {
   const formSubmissions = await db
     .select()
     .from(submissions)
-    .where(eq(submissions.form_id, record.form_id))
+    .where(and(eq(submissions.form_id, record.form_id), ne(submissions.status, 'draft')))
 
   return (
     <SharedResponsesClient
