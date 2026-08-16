@@ -22,6 +22,8 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'upload',   label: 'File upload' },
+  { value: 'rating',   label: 'Rating (1-N)' },
+  { value: 'matrix',   label: 'Matrix / Grid' },
 ]
 
 function uid() { return Math.random().toString(36).slice(2, 8) }
@@ -96,6 +98,10 @@ export default function NewFormPage() {
       } else {
         options = baseOptions
       }
+    } else if (newType === 'matrix') {
+      // Row labels double as parts of the matrix encoding scheme (Row:score
+      // joined by ||), so strip any ':' or '|' to avoid corrupting parsing.
+      options = newOptions.split('\n').map(s => s.trim().replace(/[:|]/g, '')).filter(Boolean)
     }
     
     const field: FormField = {
@@ -113,8 +119,12 @@ export default function NewFormPage() {
         operator: newDependsOnOperator,
         triggerValue: newDependsOnValue
       } : undefined,
-      minValue: newMinValue ? parseFloat(newMinValue) : undefined,
-      maxValue: newMaxValue ? parseFloat(newMaxValue) : undefined,
+      minValue: newMinValue
+        ? parseFloat(newMinValue)
+        : (newType === 'rating' || newType === 'matrix') ? 1 : undefined,
+      maxValue: newMaxValue
+        ? parseFloat(newMaxValue)
+        : (newType === 'rating' || newType === 'matrix') ? 5 : undefined,
       minLength: newMinLength ? parseInt(newMinLength) : undefined,
       maxLength: newMaxLength ? parseInt(newMaxLength) : undefined,
       acceptedFileTypes: newType === 'upload' ? newAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
@@ -328,6 +338,19 @@ export default function NewFormPage() {
               </div>
             )}
 
+            {(newType === 'rating' || newType === 'matrix') && (
+              <div className="space-y-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <label className="label text-sm">Scale</label>
+                <select
+                  className="input"
+                  value={newMaxValue || '5'}
+                  onChange={e => { setNewMinValue('1'); setNewMaxValue(e.target.value) }}
+                >
+                  {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>1 to {n}</option>)}
+                </select>
+              </div>
+            )}
+
             {(newType === 'text' || newType === 'textarea') && (
               <div className="space-y-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
                 <label className="label text-sm">Text length constraints</label>
@@ -385,7 +408,15 @@ export default function NewFormPage() {
                 )}
               </>
             )}
-            {newType !== 'select' && newType !== 'checkbox' && (
+
+            {newType === 'matrix' && (
+              <div>
+                <label className="label">Rows to rate (one per line)</label>
+                <textarea className="input" rows={5} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Quality\nTimeliness\nCommunication"} />
+              </div>
+            )}
+
+            {newType !== 'select' && newType !== 'checkbox' && newType !== 'rating' && newType !== 'matrix' && (
               <div>
                 <label className="label">Placeholder text</label>
                 <input className="input" value={newPlaceholder} onChange={e => setNewPlaceholder(e.target.value)} placeholder="Hint text" />

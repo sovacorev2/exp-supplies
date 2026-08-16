@@ -470,17 +470,42 @@ export default function SuppliersClient({
 
             <div className="p-4 md:p-6 flex-1 space-y-4 overflow-y-auto">
               {Object.entries(selected.data).map(([key, value]: [string, string]) => {
+                const formDef = forms.find(f => f.id === selected.form_id)
+                const fieldDef = formDef?.fields.find(fld => fld.label === key)
+
                 const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product') || key.toLowerCase().includes('supply')
                 const isImageUrl = isImageField && typeof value === 'string' && value.startsWith('https://')
-                
+
                 // Detect and format multiselect/checkbox fields (|| separated values)
                 const isMultiselect = typeof value === 'string' && value.includes('||')
                 const items = isMultiselect ? value.split('||').map(v => v.trim()).filter(Boolean) : []
-                
+
+                const matrixRows = fieldDef?.type === 'matrix'
+                  ? (value || '').split('||').filter(Boolean).map(pair => {
+                      const [row, score] = pair.split(':')
+                      return { row, score }
+                    })
+                  : []
+
                 return (
                   <div key={key} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-100 dark:border-gray-600">
                     <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 font-bold mb-3">{key}</p>
-                    {isImageUrl ? (
+                    {fieldDef?.type === 'rating' ? (
+                      <p className="text-sm md:text-base text-gray-900 dark:text-gray-100 font-medium">
+                        {value || '—'} / {fieldDef.maxValue ?? 5}
+                      </p>
+                    ) : fieldDef?.type === 'matrix' ? (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {matrixRows.map(({ row, score }, idx) => (
+                            <tr key={idx} className="border-t border-gray-200 dark:border-gray-600 first:border-t-0">
+                              <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{row}</td>
+                              <td className="py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">{score} / {fieldDef.maxValue ?? 5}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : isImageUrl ? (
                       <a
                         href={`/api/image-proxy?url=${encodeURIComponent(value)}`}
                         target="_blank"
