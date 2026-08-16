@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens } from '@/lib/db/schema'
+import { forms, submissions, shareTokens, analyticsTokens, invitees } from '@/lib/db/schema'
 import { eq, desc, ne, and } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
@@ -68,6 +68,15 @@ export interface Draft {
   expiresAt: Date
 }
 
+export interface Invitee {
+  id: string
+  name: string
+  email: string
+  token: string
+  status: 'not_opened' | 'opened' | 'submitted'
+  created_at: Date
+}
+
 // ── Ownership helpers ──────────────────────────────────────────────────
 
 async function getOwnedForm(id: string, currentUser: CurrentUser) {
@@ -75,6 +84,14 @@ async function getOwnedForm(id: string, currentUser: CurrentUser) {
   const row = rows[0] as any
   if (!row) throw new Error('Form not found')
   if (currentUser.role !== 'admin' && row.user_id !== currentUser.id) throw new ForbiddenError()
+  return row
+}
+
+async function getOwnedInvitee(id: string, currentUser: CurrentUser) {
+  const rows = await db.select().from(invitees).where(eq(invitees.id, id)).limit(1)
+  const row = rows[0] as any
+  if (!row) throw new Error('Invitee not found')
+  await getOwnedForm(row.form_id, currentUser)
   return row
 }
 
@@ -231,12 +248,19 @@ export async function getSubmissions(): Promise<Submission[]> {
 export async function createSubmission(
   formId: string,
   data: Record<string, string>,
-  resumeToken?: string
+  resumeToken?: string,
+  inviteeId?: string
 ): Promise<void> {
   if (resumeToken) {
     const rows = await db
       .update(submissions)
-      .set({ data: data as unknown as any, status: 'pending', resume_token: null, expires_at: null })
+      .set({
+        data: data as unknown as any,
+        status: 'pending',
+        resume_token: null,
+        expires_at: null,
+        ...(inviteeId ? { invitee_id: inviteeId } : {}),
+      })
       .where(and(
         eq(submissions.resume_token, resumeToken),
         eq(submissions.form_id, formId),
@@ -249,6 +273,7 @@ export async function createSubmission(
     form_id: formId,
     data: data as unknown as any,
     status: 'pending',
+    ...(inviteeId ? { invitee_id: inviteeId } : {}),
   })
 }
 
@@ -257,14 +282,19 @@ export async function createSubmission(
 export async function saveDraft(
   formId: string,
   data: Record<string, string>,
-  resumeToken?: string
+  resumeToken?: string,
+  inviteeId?: string
 ): Promise<{ resumeToken: string; expiresAt: Date }> {
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
   if (resumeToken) {
     const rows = await db
       .update(submissions)
-      .set({ data: data as unknown as any, expires_at: expiresAt })
+      .set({
+        data: data as unknown as any,
+        expires_at: expiresAt,
+        ...(inviteeId ? { invitee_id: inviteeId } : {}),
+      })
       .where(and(
         eq(submissions.resume_token, resumeToken),
         eq(submissions.form_id, formId),
@@ -283,6 +313,7 @@ export async function saveDraft(
     status: 'draft',
     resume_token: token,
     expires_at: expiresAt,
+    ...(inviteeId ? { invitee_id: inviteeId } : {}),
   })
   return { resumeToken: token, expiresAt }
 }
@@ -378,6 +409,96 @@ export async function getSharedFormData(token: string) {
     })),
     expiresAt: record.expires_at,
   }
+}
+
+// ── Invitees (per-invitee tracking) ────────────────────────────────────
+
+export async function getInvitees(formId: string): Promise<{ form: Pick<Form, 'id' | 'name' | 'slug'>; invitees: Invitee[] }> {
+  const currentUser = await requireUser()
+  const form = await getOwnedForm(formId, currentUser)
+
+  const rows = await db
+    .select()
+    .from(invitees)
+    .leftJoin(
+      submissions,
+      and(eq(submissions.invitee_id, invitees.id), ne(submissions.status, 'draft'))
+    )
+    .where(eq(invitees.form_id, formId))
+    .orderBy(desc(invitees.created_at))
+
+  // Multiple non-draft submissions could in principle link to one invitee
+  // (edit-after-submit isn't a thing yet, but be defensive) — collapse by id.
+  const byId = new Map<string, Invitee>()
+  for (const row of rows as any[]) {
+    const inv = row.invitees
+    if (byId.has(inv.id)) continue
+    const status: Invitee['status'] = row.submissions
+      ? 'submitted'
+      : inv.opened_at
+        ? 'opened'
+        : 'not_opened'
+    byId.set(inv.id, {
+      id: inv.id,
+      name: inv.name,
+      email: inv.email,
+      token: inv.token,
+      status,
+      created_at: inv.created_at,
+    })
+  }
+
+  return {
+    form: { id: form.id, name: form.name, slug: form.slug },
+    invitees: Array.from(byId.values()),
+  }
+}
+
+export async function addInvitees(
+  formId: string,
+  list: { name: string; email: string }[]
+): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+
+  const rows = list
+    .map(entry => ({ name: entry.name.trim(), email: entry.email.trim() }))
+    .filter(entry => entry.name && entry.email)
+    .map(entry => ({
+      form_id: formId,
+      name: entry.name,
+      email: entry.email,
+      token: randomBytes(16).toString('hex'),
+    }))
+
+  if (!rows.length) return
+  await db.insert(invitees).values(rows)
+}
+
+export async function deleteInvitee(id: string): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedInvitee(id, currentUser)
+  await db.delete(invitees).where(eq(invitees.id, id))
+}
+
+export async function resolveInvitee(
+  formId: string,
+  token: string
+): Promise<{ id: string; name: string; email: string } | { error: string }> {
+  const rows = await db
+    .select()
+    .from(invitees)
+    .where(and(eq(invitees.form_id, formId), eq(invitees.token, token)))
+    .limit(1)
+
+  if (!rows.length) return { error: 'invalid' }
+  const row = rows[0] as any
+
+  if (!row.opened_at) {
+    await db.update(invitees).set({ opened_at: new Date() }).where(eq(invitees.id, row.id))
+  }
+
+  return { id: row.id, name: row.name, email: row.email }
 }
 
 // ── Analytics tokens ────────────────────────────────────────────────────

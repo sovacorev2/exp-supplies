@@ -70,6 +70,18 @@ export const forms = pgTable('forms', {
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 })
 
+export const invitees = pgTable('invitees', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  token: text('token').notNull().unique(),
+  opened_at: timestamp('opened_at'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+})
+
 export const submissions = pgTable('submissions', {
   id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
   form_id: text('form_id')
@@ -80,6 +92,7 @@ export const submissions = pgTable('submissions', {
   notes: text('notes'),
   resume_token: text('resume_token'),
   expires_at: timestamp('expires_at'),
+  invitee_id: text('invitee_id').references(() => invitees.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 })

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Pause, Play, Trash2, Share2 } from 'lucide-react'
+import Link from 'next/link'
+import { Copy, Check, Pause, Play, Trash2, Share2, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 declare global {
@@ -130,6 +131,13 @@ export default function FormActions({
         >
           <Share2 size={13} />
         </button>
+        <Link
+          href={`/admin/forms/${formId}/invitees`}
+          className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-brand-600 transition-colors"
+          title="Manage invitees"
+        >
+          <Users size={13} />
+        </Link>
         <button
           onClick={() => setDeleteConfirm(true)}
           className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-red-600 transition-colors"

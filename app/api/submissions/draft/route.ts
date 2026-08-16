@@ -4,9 +4,10 @@ import { saveDraft, getDraft } from '@/app/actions/forms'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const { formId, resumeToken, data } = (await request.json()) as {
+  const { formId, resumeToken, inviteeId, data } = (await request.json()) as {
     formId?: string
     resumeToken?: string
+    inviteeId?: string
     data?: Record<string, string>
   }
   if (!formId || !data) {
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await saveDraft(formId, data, resumeToken)
+    const result = await saveDraft(formId, data, resumeToken, inviteeId)
     return NextResponse.json(result)
   } catch (err) {
     console.error('[v0] Error saving draft:', err)
