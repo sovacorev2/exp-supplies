@@ -17,6 +17,7 @@ export default function SupplierForm({ form }: { form: Form }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [recordState, setRecordState] = useState<'new' | 'draft' | 'editing' | 'locked'>('new')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [honeypot, setHoneypot] = useState('')
 
   const resumeTokenRef = useRef<string | null>(null)
   const inviteeIdRef = useRef<string | null>(null)
@@ -260,10 +261,20 @@ export default function SupplierForm({ form }: { form: Form }) {
     setSubmitting(true)
 
     try {
-      const result = await createSubmission(form.id, values, resumeTokenRef.current ?? undefined, inviteeIdRef.current ?? undefined)
+      const result = await createSubmission(
+        form.id,
+        values,
+        resumeTokenRef.current ?? undefined,
+        inviteeIdRef.current ?? undefined,
+        honeypot || undefined
+      )
       if ('error' in result) {
-        setRecordState('locked')
-        setErrors({ submit: 'This response has already been reviewed and can no longer be edited.' })
+        if (result.error === 'rate_limited') {
+          setErrors({ submit: 'Too many submissions from this network — please wait a few minutes and try again.' })
+        } else {
+          setRecordState('locked')
+          setErrors({ submit: 'This response has already been reviewed and can no longer be edited.' })
+        }
         return
       }
       resumeTokenRef.current = result.resumeToken
@@ -355,6 +366,24 @@ export default function SupplierForm({ form }: { form: Form }) {
 
   return (
     <form onSubmit={handleSubmit} className="card p-4 md:p-6 space-y-4 md:space-y-6 dark:bg-gray-800 dark:border-gray-700">
+      {/* Spam trap — invisible to real visitors, left blank by humans.
+          A filled value silently short-circuits the submit as a no-op. */}
+      <div
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: 1, height: 1, overflow: 'hidden' }}
+      >
+        <label htmlFor="website">Website</label>
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={e => setHoneypot(e.target.value)}
+        />
+      </div>
+
       {/* Logo and title */}
       <div className="text-center mb-6 md:mb-8 pb-4 md:pb-6 border-b border-gray-100 dark:border-gray-700">
         <Image

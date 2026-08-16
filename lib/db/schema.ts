@@ -123,3 +123,12 @@ export const adminLoginAttempts = pgTable('admin_login_attempts', {
   ip: text('ip').notNull(),
   created_at: timestamp('created_at').notNull().defaultNow(),
 })
+
+export const submissionAttempts = pgTable('submission_attempts', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  ip: text('ip').notNull(),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+})
