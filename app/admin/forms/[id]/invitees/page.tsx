@@ -23,7 +23,9 @@ export default async function InviteesPage({
         ? "You don't have access to this form's invitees."
         : err instanceof UnauthorizedError
           ? 'Please sign in to view this page.'
-          : "This form doesn't exist, or has been deleted."
+          : err instanceof Error && err.message === 'Form not found'
+            ? "This form doesn't exist, or has been deleted."
+            : 'Something went wrong loading this page. Please try again.'
     console.error('[v0] invitees/page error:', err)
     return (
       <div className="flex flex-col h-full bg-white dark:bg-gray-900">
