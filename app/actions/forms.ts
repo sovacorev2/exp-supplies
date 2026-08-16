@@ -7,7 +7,7 @@ import { randomBytes } from 'crypto'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 import { sendEmail } from '@/lib/email'
 
-export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
+export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload' | 'rating' | 'matrix'
 
 export interface DropdownOption {
   label: string

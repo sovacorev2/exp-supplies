@@ -24,6 +24,8 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'date',     label: 'Date' },
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'upload',   label: 'File upload' },
+  { value: 'rating',   label: 'Rating (1-N)' },
+  { value: 'matrix',   label: 'Matrix / Grid' },
 ]
 
 function uid() { return Math.random().toString(36).slice(2, 8) }
@@ -55,6 +57,8 @@ export default function EditFormPage() {
   const [newDependsOnField, setNewDependsOnField] = useState('')
   const [newDependsOnValue, setNewDependsOnValue] = useState('')
   const [newAcceptedFileTypes, setNewAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
+  const [newMinValue, setNewMinValue] = useState('')
+  const [newMaxValue, setNewMaxValue] = useState('')
 
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
@@ -66,6 +70,8 @@ export default function EditFormPage() {
   const [editSuboptionsRequired, setEditSuboptionsRequired] = useState(false)
   const [editSuboptionsMap, setEditSuboptionsMap] = useState<Record<string, string>>({})
   const [editAcceptedFileTypes, setEditAcceptedFileTypes] = useState('image/jpeg,image/png,image/webp')
+  const [editMinValue, setEditMinValue] = useState('')
+  const [editMaxValue, setEditMaxValue] = useState('')
   const [addingSection, setAddingSection] = useState(false)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -121,8 +127,12 @@ export default function EditFormPage() {
       } else {
         options = baseOptions
       }
+    } else if (newType === 'matrix') {
+      // Row labels double as parts of the matrix encoding scheme (Row:score
+      // joined by ||), so strip any ':' or '|' to avoid corrupting parsing.
+      options = newOptions.split('\n').map(s => s.trim().replace(/[:|]/g, '')).filter(Boolean)
     }
-    
+
     const field: FormField = {
       id: uid(),
       label: newLabel.trim(),
@@ -138,6 +148,12 @@ export default function EditFormPage() {
         triggerValue: newDependsOnValue
       } : undefined,
       acceptedFileTypes: newType === 'upload' ? newAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
+      minValue: newMinValue
+        ? parseFloat(newMinValue)
+        : (newType === 'rating' || newType === 'matrix') ? 1 : undefined,
+      maxValue: newMaxValue
+        ? parseFloat(newMaxValue)
+        : (newType === 'rating' || newType === 'matrix') ? 5 : undefined,
     }
     setFields(prev => [...prev, field])
     setNewLabel('')
@@ -149,6 +165,8 @@ export default function EditFormPage() {
     setNewDependsOnField('')
     setNewDependsOnValue('')
     setNewAcceptedFileTypes('image/jpeg,image/png,image/webp')
+    setNewMinValue('')
+    setNewMaxValue('')
   }
 
   function addSectionHeader() {
@@ -196,6 +214,8 @@ export default function EditFormPage() {
     }
     
     setEditAcceptedFileTypes(field.acceptedFileTypes?.join(',') || 'image/jpeg,image/png,image/webp')
+    setEditMinValue(field.minValue !== undefined ? String(field.minValue) : '')
+    setEditMaxValue(field.maxValue !== undefined ? String(field.maxValue) : '')
   }
 
   function startEditSectionHeader(field: FormField) {
@@ -222,6 +242,8 @@ export default function EditFormPage() {
       } else {
         options = baseOptions
       }
+    } else if (!isSectionHeader && editType === 'matrix') {
+      options = editOptions.split('\n').map(s => s.trim().replace(/[:|]/g, '')).filter(Boolean)
     }
 
     setFields(prev => prev.map(f =>
@@ -238,6 +260,12 @@ export default function EditFormPage() {
               hasSuboptions: editHasSuboptions || undefined,
               suboptionsRequired: editHasSuboptions ? editSuboptionsRequired : undefined,
               acceptedFileTypes: editType === 'upload' ? editAcceptedFileTypes.split(',').map(t => t.trim()) : undefined,
+              minValue: editMinValue
+                ? parseFloat(editMinValue)
+                : (editType === 'rating' || editType === 'matrix') ? 1 : undefined,
+              maxValue: editMaxValue
+                ? parseFloat(editMaxValue)
+                : (editType === 'rating' || editType === 'matrix') ? 5 : undefined,
             }
         : f
     ))
@@ -407,7 +435,27 @@ export default function EditFormPage() {
                                   <input className="input" value={editPlaceholder} onChange={e => setEditPlaceholder(e.target.value)} placeholder="Help text for the user..." />
                                 </div>
                               )}
-                              
+
+                              {(editType === 'rating' || editType === 'matrix') && (
+                                <div>
+                                  <label className="label">Scale</label>
+                                  <select
+                                    className="input"
+                                    value={editMaxValue || '5'}
+                                    onChange={e => { setEditMinValue('1'); setEditMaxValue(e.target.value) }}
+                                  >
+                                    {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>1 to {n}</option>)}
+                                  </select>
+                                </div>
+                              )}
+
+                              {editType === 'matrix' && (
+                                <div>
+                                  <label className="label">Rows to rate (one per line)</label>
+                                  <textarea className="input" value={editOptions} onChange={e => setEditOptions(e.target.value)} rows={3} placeholder="Quality&#10;Timeliness&#10;Communication" />
+                                </div>
+                              )}
+
                               {(editType === 'select' || editType === 'multiselect') && (
                                 <>
                                   <div>
@@ -526,6 +574,24 @@ export default function EditFormPage() {
                 ))}
               </select>
             </div>
+            {(newType === 'rating' || newType === 'matrix') && (
+              <div>
+                <label className="label">Scale</label>
+                <select
+                  className="input"
+                  value={newMaxValue || '5'}
+                  onChange={e => { setNewMinValue('1'); setNewMaxValue(e.target.value) }}
+                >
+                  {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>1 to {n}</option>)}
+                </select>
+              </div>
+            )}
+            {newType === 'matrix' && (
+              <div>
+                <label className="label">Rows to rate (one per line)</label>
+                <textarea className="input" rows={4} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Quality\nTimeliness\nCommunication"} />
+              </div>
+            )}
             {(newType === 'select' || newType === 'multiselect') && (
               <>
                 <div>
@@ -573,7 +639,7 @@ export default function EditFormPage() {
                 )}
               </>
             )}
-            {newType !== 'select' && newType !== 'checkbox' && (
+            {newType !== 'select' && newType !== 'checkbox' && newType !== 'rating' && newType !== 'matrix' && (
               <div>
                 <label className="label">Placeholder text</label>
                 <input 

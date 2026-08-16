@@ -167,7 +167,12 @@ export function exportCSV(subs: Submission[], form?: any): void {
   // Build headers in form order, including section headers
   const headers: string[] = ['Form']
   const fieldKeys: string[] = []
-  
+  // Matrix fields expand into one pseudo-key per row; a plain string key
+  // can't safely encode "which field, which row" if either label happens
+  // to contain the same separator, so track that mapping out-of-band.
+  const matrixKeyInfo = new Map<string, { fieldLabel: string; row: string }>()
+  let matrixKeyCounter = 0
+
   if (form?.fields && Array.isArray(form.fields)) {
     let currentSection = ''
     form.fields.forEach((field: any) => {
@@ -175,6 +180,17 @@ export function exportCSV(subs: Submission[], form?: any): void {
         currentSection = field.label
         headers.push(field.label)
         fieldKeys.push(`__section__${field.id}`)
+      } else if (field.type === 'matrix' && Array.isArray(field.options)) {
+        // One column per row instead of one dump-everything column —
+        // mirrors the __section__ pseudo-key pattern above.
+        field.options.forEach((opt: any) => {
+          const row = typeof opt === 'string' ? opt : opt.label
+          const label = `${field.label} — ${row}`
+          headers.push(currentSection ? `${currentSection} - ${label}` : label)
+          const pseudoKey = `__matrix__${matrixKeyCounter++}`
+          matrixKeyInfo.set(pseudoKey, { fieldLabel: field.label, row })
+          fieldKeys.push(pseudoKey)
+        })
       } else {
         // Prefix with the section name so repeated question labels
         // across sections (e.g. "Appearance" for each sample) stay
@@ -195,7 +211,7 @@ export function exportCSV(subs: Submission[], form?: any): void {
   // Image/file-upload answers are URLs — turn them into clickable
   // Excel/Sheets hyperlinks instead of dumping the raw link text.
   const imageFields = new Set(
-    fieldKeys.filter(k => !k.startsWith('__section__') && /image|photo|product|supply/i.test(k))
+    fieldKeys.filter(k => !k.startsWith('__section__') && !k.startsWith('__matrix__') && /image|photo|product|supply/i.test(k))
   )
 
   const rows = [
@@ -204,6 +220,13 @@ export function exportCSV(subs: Submission[], form?: any): void {
       s.forms?.name ?? '',
       ...fieldKeys.map(k => {
         if (k.startsWith('__section__')) return '' // Section headers have no data
+        if (k.startsWith('__matrix__')) {
+          const info = matrixKeyInfo.get(k)
+          if (!info) return ''
+          const pairs = String((s.data as any)?.[info.fieldLabel] ?? '').split('||').filter(Boolean)
+          const match = pairs.find(p => p.split(':')[0] === info.row)
+          return match ? (match.split(':')[1] ?? '') : ''
+        }
         const val = (s.data as any)?.[k] ?? ''
         if (imageFields.has(k) && String(val).startsWith('https://')) {
           return `=HYPERLINK("${String(val).replace(/"/g, '""')}", "View Image")`

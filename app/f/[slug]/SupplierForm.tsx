@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
-import { CheckCircle, Loader2, Save, Lock, Copy, Check } from 'lucide-react'
+import { CheckCircle, Loader2, Save, Lock, Copy, Check, Star } from 'lucide-react'
 
 const AUTOSAVE_DELAY_MS = 1500
 
@@ -211,6 +211,18 @@ export default function SupplierForm({ form }: { form: Form }) {
           errs[f.label] = `Minimum ${f.minLength} characters`
         } else if (f.maxLength !== undefined && value.length > f.maxLength) {
           errs[f.label] = `Maximum ${f.maxLength} characters`
+        }
+      }
+
+      // Matrix: every row must be answered if required (a matrix can have
+      // *some* rows answered — truthy `value` above — while others are
+      // still missing, so this needs its own check, not just the generic
+      // required-truthiness one above).
+      if (f.type === 'matrix' && f.required) {
+        const answeredRows = new Set((value || '').split('||').map(pair => pair.split(':')[0]).filter(Boolean))
+        const allRows = (f.options || []).map(o => typeof o === 'string' ? o : o.label)
+        if (allRows.some(row => !answeredRows.has(row))) {
+          errs[f.label] = 'Please rate every row'
         }
       }
     })
@@ -530,6 +542,79 @@ export default function SupplierForm({ form }: { form: Form }) {
                   }).join(', ')}
                 </p>
               )}
+            </div>
+          ) : field.type === 'rating' ? (
+            <div className="flex items-center gap-1">
+              {Array.from(
+                { length: (field.maxValue ?? 5) - (field.minValue ?? 1) + 1 },
+                (_, i) => (field.minValue ?? 1) + i
+              ).map(n => {
+                const current = parseInt(values[field.label] || '0', 10)
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => set(field.label, String(n))}
+                    className="p-0.5"
+                    aria-label={`Rate ${n}`}
+                  >
+                    <Star
+                      size={24}
+                      className={n <= current ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}
+                    />
+                  </button>
+                )
+              })}
+              {values[field.label] && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  {values[field.label]} / {field.maxValue ?? 5}
+                </span>
+              )}
+            </div>
+          ) : field.type === 'matrix' ? (
+            <div className={`overflow-x-auto rounded-lg border ${errors[field.label] ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="text-left p-2"></th>
+                    {Array.from(
+                      { length: (field.maxValue ?? 5) - (field.minValue ?? 1) + 1 },
+                      (_, i) => (field.minValue ?? 1) + i
+                    ).map(n => (
+                      <th key={n} className="p-2 text-xs font-medium text-gray-500 dark:text-gray-400 text-center">{n}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(field.options || []).map((opt, idx) => {
+                    const row = typeof opt === 'string' ? opt : opt.label
+                    const pairs = (values[field.label] || '').split('||').filter(Boolean)
+                    const currentScore = pairs.find(p => p.split(':')[0] === row)?.split(':')[1]
+                    return (
+                      <tr key={idx} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="p-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{row}</td>
+                        {Array.from(
+                          { length: (field.maxValue ?? 5) - (field.minValue ?? 1) + 1 },
+                          (_, i) => (field.minValue ?? 1) + i
+                        ).map(n => (
+                          <td key={n} className="p-2 text-center">
+                            <input
+                              type="radio"
+                              name={`${field.id}_${row}`}
+                              checked={currentScore === String(n)}
+                              onChange={() => {
+                                const others = pairs.filter(p => p.split(':')[0] !== row)
+                                set(field.label, [...others, `${row}:${n}`].join('||'))
+                              }}
+                              className="accent-brand-500"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <input
