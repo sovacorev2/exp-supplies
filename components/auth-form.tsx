@@ -21,6 +21,7 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -35,6 +36,10 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
       if (mode === 'sign-up') {
         if (!name) {
           setError('Name is required')
+          return
+        }
+        if (password !== confirmPassword) {
+          setError('Passwords do not match')
           return
         }
         const { error } = await authClient.signUp.email({ email, password, name })
@@ -144,8 +149,26 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
                 required
                 disabled={loading}
                 minLength={8}
+                autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
               />
             </div>
+
+            {mode === 'sign-up' && (
+              <div>
+                <label className="label">Confirm Password</label>
+                <input
+                  type="password"
+                  className="input"
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
 
             <button
               type="submit"
