@@ -17,31 +17,46 @@ export default function SupplierForm({ form }: { form: Form }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const resumeTokenRef = useRef<string | null>(null)
+  const inviteeIdRef = useRef<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef(false)
   const pendingRef = useRef(false)
   const hydratedRef = useRef(false)
 
-  // Hydrate from a resume link, if present, before any autosave is allowed to fire.
+  // Hydrate from a resume link and/or resolve an invite link, if present,
+  // before any autosave is allowed to fire. Both run in parallel and must
+  // both settle before hydratedRef flips — otherwise a fast first autosave
+  // could go out before the invitee id resolves and silently lose it.
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('resume')
-    if (!token) {
+    const params = new URLSearchParams(window.location.search)
+    const resumeTokenParam = params.get('resume')
+    const inviteToken = params.get('invite')
+
+    const resumePromise = resumeTokenParam
+      ? fetch(`/api/submissions/draft?formId=${form.id}&token=${resumeTokenParam}`)
+          .then(res => (res.ok ? res.json() : null))
+          .then(result => {
+            if (result?.data) {
+              setValues(result.data)
+              resumeTokenRef.current = resumeTokenParam
+              setResumeToken(resumeTokenParam)
+            }
+          })
+          .catch(() => {})
+      : Promise.resolve()
+
+    const invitePromise = inviteToken
+      ? fetch(`/api/invitees/resolve?formId=${form.id}&token=${inviteToken}`)
+          .then(res => (res.ok ? res.json() : null))
+          .then(result => {
+            if (result?.id) inviteeIdRef.current = result.id
+          })
+          .catch(() => {})
+      : Promise.resolve()
+
+    Promise.all([resumePromise, invitePromise]).finally(() => {
       hydratedRef.current = true
-      return
-    }
-    fetch(`/api/submissions/draft?formId=${form.id}&token=${token}`)
-      .then(res => (res.ok ? res.json() : null))
-      .then(result => {
-        if (result?.data) {
-          setValues(result.data)
-          resumeTokenRef.current = token
-          setResumeToken(token)
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        hydratedRef.current = true
-      })
+    })
   }, [form.id])
 
   async function triggerSave(currentValues: Record<string, string>) {
@@ -55,7 +70,12 @@ export default function SupplierForm({ form }: { form: Form }) {
       const res = await fetch('/api/submissions/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formId: form.id, resumeToken: resumeTokenRef.current, data: currentValues }),
+        body: JSON.stringify({
+          formId: form.id,
+          resumeToken: resumeTokenRef.current,
+          inviteeId: inviteeIdRef.current,
+          data: currentValues,
+        }),
       })
       if (!res.ok) throw new Error('draft save failed')
       const json = await res.json()
@@ -220,7 +240,7 @@ export default function SupplierForm({ form }: { form: Form }) {
     setSubmitting(true)
 
     try {
-      await createSubmission(form.id, values, resumeTokenRef.current ?? undefined)
+      await createSubmission(form.id, values, resumeTokenRef.current ?? undefined, inviteeIdRef.current ?? undefined)
       setSubmitted(true)
       window.history.replaceState(null, '', window.location.pathname)
     } catch (error) {
