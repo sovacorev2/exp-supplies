@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Trash2, UserPlus, Loader2 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { Copy, Check, Trash2, UserPlus, Loader2, Mail, Send } from 'lucide-react'
 import type { Invitee } from '@/app/actions/forms'
 
 const STATUS_STYLES: Record<Invitee['status'], string> = {
@@ -20,14 +21,16 @@ const STATUS_LABELS: Record<Invitee['status'], string> = {
 function InviteeRow({
   invitee,
   formSlug,
-  onDeleted,
+  onChanged,
 }: {
   invitee: Invitee
   formSlug: string
-  onDeleted: () => void
+  onChanged: () => void
 }) {
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   const link = typeof window !== 'undefined'
     ? `${window.location.origin}/f/${formSlug}?invite=${invitee.token}`
@@ -44,9 +47,26 @@ function InviteeRow({
     setDeleting(true)
     try {
       const res = await fetch(`/api/invitees/${invitee.id}`, { method: 'DELETE' })
-      if (res.ok) onDeleted()
+      if (res.ok) onChanged()
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleSend() {
+    setSending(true)
+    setSendError('')
+    try {
+      const res = await fetch(`/api/invitees/${invitee.id}/send`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.ok) {
+        setSendError(data.error || 'Failed to send')
+      }
+    } catch {
+      setSendError('Failed to send')
+    } finally {
+      setSending(false)
+      onChanged()
     }
   }
 
@@ -67,6 +87,21 @@ function InviteeRow({
           {copied ? <Check size={13} /> : <Copy size={13} />}
           {copied ? 'Copied' : 'Copy link'}
         </button>
+      </td>
+      <td className="py-3 pr-4">
+        <button
+          onClick={handleSend}
+          disabled={sending}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400 disabled:opacity-50"
+        >
+          {sending ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+          {sending
+            ? 'Sending…'
+            : invitee.last_reminded_at
+              ? `Sent ${formatDistanceToNow(new Date(invitee.last_reminded_at), { addSuffix: true })}`
+              : 'Send'}
+        </button>
+        {sendError && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{sendError}</p>}
       </td>
       <td className="py-3 pr-4 text-right">
         <button
@@ -95,6 +130,10 @@ export default function InviteesTable({
   const [bulkText, setBulkText] = useState('')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
+  const [reminding, setReminding] = useState(false)
+  const [remindResult, setRemindResult] = useState('')
+
+  const outstanding = invitees.filter(i => i.status !== 'submitted')
 
   function parseBulkText(text: string): { name: string; email: string }[] {
     return text
@@ -136,6 +175,25 @@ export default function InviteesTable({
     }
   }
 
+  async function handleRemindAll() {
+    setReminding(true)
+    setRemindResult('')
+    try {
+      const res = await fetch(`/api/forms/${formId}/invitees/remind-all`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setRemindResult(`Sent to ${data.sent}${data.failed ? `, ${data.failed} failed` : ''}`)
+      } else {
+        setRemindResult(data.error || 'Failed to send reminders')
+      }
+    } catch {
+      setRemindResult('Failed to send reminders')
+    } finally {
+      setReminding(false)
+      router.refresh()
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 md:p-5">
@@ -169,27 +227,50 @@ export default function InviteesTable({
             No invitees yet — add some above.
           </p>
         ) : (
-          <table className="w-full min-w-[560px]">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</th>
-                <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</th>
-                <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
-                <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Link</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody className="px-4">
-              {invitees.map(invitee => (
-                <InviteeRow
-                  key={invitee.id}
-                  invitee={invitee}
-                  formSlug={formSlug}
-                  onDeleted={() => router.refresh()}
-                />
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {outstanding.length === 0
+                  ? 'Everyone has submitted.'
+                  : `${outstanding.length} outstanding`}
+              </p>
+              {outstanding.length > 0 && (
+                <div className="flex items-center gap-3">
+                  {remindResult && <span className="text-xs text-gray-500 dark:text-gray-400">{remindResult}</span>}
+                  <button
+                    onClick={handleRemindAll}
+                    disabled={reminding}
+                    className="btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+                  >
+                    {reminding ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    {reminding ? 'Sending…' : 'Remind all outstanding'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <table className="w-full min-w-[680px]">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                  <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</th>
+                  <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</th>
+                  <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
+                  <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Link</th>
+                  <th className="py-2.5 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Reminder</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody className="px-4">
+                {invitees.map(invitee => (
+                  <InviteeRow
+                    key={invitee.id}
+                    invitee={invitee}
+                    formSlug={formSlug}
+                    onChanged={() => router.refresh()}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </div>

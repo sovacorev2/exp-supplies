@@ -5,6 +5,7 @@ import { forms, submissions, shareTokens, analyticsTokens, invitees } from '@/li
 import { eq, desc, ne, and } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
+import { sendEmail } from '@/lib/email'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
 
@@ -75,6 +76,7 @@ export interface Invitee {
   token: string
   status: 'not_opened' | 'opened' | 'submitted'
   created_at: Date
+  last_reminded_at: Date | null
 }
 
 // ── Ownership helpers ──────────────────────────────────────────────────
@@ -445,6 +447,7 @@ export async function getInvitees(formId: string): Promise<{ form: Pick<Form, 'i
       token: inv.token,
       status,
       created_at: inv.created_at,
+      last_reminded_at: inv.last_reminded_at,
     })
   }
 
@@ -499,6 +502,71 @@ export async function resolveInvitee(
   }
 
   return { id: row.id, name: row.name, email: row.email }
+}
+
+async function sendInviteEmailCore(
+  invitee: { id: string; name: string; email: string; token: string },
+  form: { name: string; slug: string },
+  origin: string
+): Promise<{ ok: boolean; error?: string }> {
+  const link = `${origin}/f/${form.slug}?invite=${invitee.token}`
+  const result = await sendEmail({
+    to: invitee.email,
+    subject: `You're invited: ${form.name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #111;">${form.name}</h2>
+        <p>Hi ${invitee.name},</p>
+        <p>You've been invited to fill out this form. Your progress is saved automatically, so you can leave and come back any time using this link:</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="background: #dc2626; color: #fff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Open form</a>
+        </p>
+        <p style="color: #666; font-size: 13px;">${link}</p>
+      </div>
+    `,
+  })
+
+  if (result.ok) {
+    await db.update(invitees).set({ last_reminded_at: new Date() }).where(eq(invitees.id, invitee.id))
+  }
+
+  return result
+}
+
+export async function sendInviteEmail(
+  inviteeId: string,
+  origin: string
+): Promise<{ ok: boolean; error?: string }> {
+  const currentUser = await requireUser()
+  const invitee = await getOwnedInvitee(inviteeId, currentUser)
+
+  const formRows = await db.select().from(forms).where(eq(forms.id, invitee.form_id)).limit(1)
+  if (!formRows.length) return { ok: false, error: 'Form not found' }
+  const form = formRows[0] as any
+
+  return sendInviteEmailCore(invitee, { name: form.name, slug: form.slug }, origin)
+}
+
+export async function sendBulkReminders(
+  formId: string,
+  origin: string
+): Promise<{ sent: number; failed: number }> {
+  const { form, invitees: list } = await getInvitees(formId)
+  const outstanding = list.filter(i => i.status !== 'submitted')
+
+  let sent = 0
+  let failed = 0
+  for (const invitee of outstanding) {
+    try {
+      const result = await sendInviteEmailCore(invitee, form, origin)
+      if (result.ok) sent++
+      else failed++
+    } catch {
+      failed++
+    }
+  }
+
+  return { sent, failed }
 }
 
 // ── Analytics tokens ────────────────────────────────────────────────────
