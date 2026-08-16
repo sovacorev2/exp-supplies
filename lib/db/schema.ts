@@ -79,6 +79,7 @@ export const invitees = pgTable('invitees', {
   email: text('email').notNull(),
   token: text('token').notNull().unique(),
   opened_at: timestamp('opened_at'),
+  last_reminded_at: timestamp('last_reminded_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 })
 
