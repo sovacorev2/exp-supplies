@@ -206,7 +206,7 @@ export default function InviteesTable({
         <textarea
           className="input font-mono text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
           rows={4}
-          placeholder={'Jane Doe, jane@acme.com\nJohn Smith, john@example.com'}
+          placeholder={'Amara Njoroge, example@expagency.biz\nBrian Otieno, example@expagency.biz'}
           value={bulkText}
           onChange={e => setBulkText(e.target.value)}
           disabled={adding}
