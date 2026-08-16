@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { forms, submissions, shareTokens, analyticsTokens, invitees } from '@/lib/db/schema'
-import { eq, desc, ne, and } from 'drizzle-orm'
+import { eq, desc, ne, and, or } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 import { sendEmail } from '@/lib/email'
@@ -66,7 +66,8 @@ export interface Submission {
 
 export interface Draft {
   data: Record<string, string>
-  expiresAt: Date
+  expiresAt: Date | null
+  status: 'draft' | 'pending'
 }
 
 export interface Invitee {
@@ -252,31 +253,46 @@ export async function createSubmission(
   data: Record<string, string>,
   resumeToken?: string,
   inviteeId?: string
-): Promise<void> {
+): Promise<{ resumeToken: string } | { error: 'locked' }> {
   if (resumeToken) {
     const rows = await db
       .update(submissions)
       .set({
         data: data as unknown as any,
         status: 'pending',
-        resume_token: null,
         expires_at: null,
         ...(inviteeId ? { invitee_id: inviteeId } : {}),
       })
       .where(and(
         eq(submissions.resume_token, resumeToken),
         eq(submissions.form_id, formId),
-        eq(submissions.status, 'draft')
+        or(eq(submissions.status, 'draft'), eq(submissions.status, 'pending'))
       ))
-      .returning({ id: submissions.id })
-    if (rows.length) return
+      .returning({ resume_token: submissions.resume_token })
+    if (rows.length) return { resumeToken: rows[0].resume_token as string }
+
+    // Token didn't match a draft/pending row — check whether it belongs to
+    // an already-reviewed submission (admin approved/rejected mid-edit).
+    const existing = await db
+      .select({ status: submissions.status })
+      .from(submissions)
+      .where(and(eq(submissions.resume_token, resumeToken), eq(submissions.form_id, formId)))
+      .limit(1)
+    if (existing.length && (existing[0].status === 'approved' || existing[0].status === 'rejected')) {
+      return { error: 'locked' }
+    }
+    // otherwise: stale/foreign token — fall through, mint a fresh submission
   }
+
+  const token = randomBytes(16).toString('hex')
   await db.insert(submissions).values({
     form_id: formId,
     data: data as unknown as any,
     status: 'pending',
+    resume_token: token,
     ...(inviteeId ? { invitee_id: inviteeId } : {}),
   })
+  return { resumeToken: token }
 }
 
 // ── Draft submissions (save & resume later) ───────────────────────────
@@ -320,24 +336,30 @@ export async function saveDraft(
   return { resumeToken: token, expiresAt }
 }
 
-export async function getDraft(formId: string, resumeToken: string): Promise<Draft | { error: string }> {
+export async function getDraft(
+  formId: string,
+  resumeToken: string
+): Promise<Draft | { error: 'invalid' | 'expired' | 'locked' }> {
   const rows = await db
     .select()
     .from(submissions)
     .where(and(
       eq(submissions.resume_token, resumeToken),
-      eq(submissions.form_id, formId),
-      eq(submissions.status, 'draft')
+      eq(submissions.form_id, formId)
     ))
     .limit(1)
 
   if (!rows.length) return { error: 'invalid' }
   const row = rows[0] as any
-  if (row.expires_at && new Date(row.expires_at) < new Date()) return { error: 'expired' }
+
+  if (row.status === 'approved' || row.status === 'rejected') return { error: 'locked' }
+  if (row.status === 'draft' && row.expires_at && new Date(row.expires_at) < new Date()) return { error: 'expired' }
+  if (row.status !== 'draft' && row.status !== 'pending') return { error: 'invalid' } // defensive
 
   return {
     data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data || {},
     expiresAt: row.expires_at,
+    status: row.status,
   }
 }
 

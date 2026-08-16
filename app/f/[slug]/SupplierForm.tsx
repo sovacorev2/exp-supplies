@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
-import { CheckCircle, Loader2, Save } from 'lucide-react'
+import { CheckCircle, Loader2, Save, Lock, Copy, Check } from 'lucide-react'
 
 const AUTOSAVE_DELAY_MS = 1500
 
@@ -15,6 +15,8 @@ export default function SupplierForm({ form }: { form: Form }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [resumeToken, setResumeToken] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [recordState, setRecordState] = useState<'new' | 'draft' | 'editing' | 'locked'>('new')
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const resumeTokenRef = useRef<string | null>(null)
   const inviteeIdRef = useRef<string | null>(null)
@@ -34,12 +36,18 @@ export default function SupplierForm({ form }: { form: Form }) {
 
     const resumePromise = resumeTokenParam
       ? fetch(`/api/submissions/draft?formId=${form.id}&token=${resumeTokenParam}`)
-          .then(res => (res.ok ? res.json() : null))
-          .then(result => {
+          .then(async res => {
+            if (res.status === 403) {
+              setRecordState('locked')
+              return
+            }
+            if (!res.ok) return
+            const result = await res.json()
             if (result?.data) {
               setValues(result.data)
               resumeTokenRef.current = resumeTokenParam
               setResumeToken(resumeTokenParam)
+              setRecordState(result.status === 'pending' ? 'editing' : 'draft')
             }
           })
           .catch(() => {})
@@ -100,7 +108,7 @@ export default function SupplierForm({ form }: { form: Form }) {
 
   // Debounced autosave whenever the answers change.
   useEffect(() => {
-    if (!hydratedRef.current || submitted || Object.keys(values).length === 0) return
+    if (!hydratedRef.current || submitted || recordState === 'editing' || recordState === 'locked' || Object.keys(values).length === 0) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => triggerSave(values), AUTOSAVE_DELAY_MS)
     return () => {
@@ -240,7 +248,14 @@ export default function SupplierForm({ form }: { form: Form }) {
     setSubmitting(true)
 
     try {
-      await createSubmission(form.id, values, resumeTokenRef.current ?? undefined, inviteeIdRef.current ?? undefined)
+      const result = await createSubmission(form.id, values, resumeTokenRef.current ?? undefined, inviteeIdRef.current ?? undefined)
+      if ('error' in result) {
+        setRecordState('locked')
+        setErrors({ submit: 'This response has already been reviewed and can no longer be edited.' })
+        return
+      }
+      resumeTokenRef.current = result.resumeToken
+      setResumeToken(result.resumeToken)
       setSubmitted(true)
       window.history.replaceState(null, '', window.location.pathname)
     } catch (error) {
@@ -251,7 +266,31 @@ export default function SupplierForm({ form }: { form: Form }) {
     }
   }
 
+  if (recordState === 'locked' && !submitted) {
+    return (
+      <div className="text-center py-12 md:py-16 px-4">
+        <div className="inline-flex items-center justify-center w-16 md:w-20 h-16 md:h-20 rounded-full bg-gray-100 dark:bg-gray-700 mb-4 md:mb-6">
+          <Lock size={36} className="md:w-11 md:h-11 text-gray-500 dark:text-gray-400" />
+        </div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">This response has already been reviewed</h2>
+        <p className="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed max-w-md mx-auto">
+          It can no longer be edited from this link.
+        </p>
+      </div>
+    )
+  }
+
   if (submitted) {
+    const editLink = resumeToken && typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}?resume=${resumeToken}`
+      : ''
+
+    async function copyEditLink() {
+      await navigator.clipboard.writeText(editLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    }
+
     return (
       <div className="text-center py-12 md:py-16 px-4">
         <div className="inline-flex items-center justify-center w-16 md:w-20 h-16 md:h-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-4 md:mb-6">
@@ -261,6 +300,28 @@ export default function SupplierForm({ form }: { form: Form }) {
         <p className="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed max-w-md mx-auto mb-6 md:mb-8">
           Your response has been received and saved.
         </p>
+
+        {editLink && (
+          <div className="max-w-sm mx-auto mb-8 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-left">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Save this link to make changes later:</p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={editLink}
+                className="flex-1 min-w-0 text-xs font-mono bg-transparent text-gray-700 dark:text-gray-300 outline-none truncate"
+              />
+              <button
+                type="button"
+                onClick={copyEditLink}
+                className="flex-shrink-0 p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-brand-600"
+                title="Copy link"
+              >
+                {linkCopied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={() => {
             setSubmitted(false)
@@ -270,6 +331,7 @@ export default function SupplierForm({ form }: { form: Form }) {
             resumeTokenRef.current = null
             setResumeToken(null)
             setSaveState('idle')
+            setRecordState('new')
           }}
           className="inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white font-semibold rounded-lg hover:from-brand-700 hover:to-brand-800 transition-all shadow-md hover:shadow-lg text-sm md:text-base"
         >
@@ -296,7 +358,7 @@ export default function SupplierForm({ form }: { form: Form }) {
         )}
       </div>
 
-      {resumeToken && (
+      {resumeToken && recordState === 'draft' && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 text-xs md:text-sm text-brand-700 dark:text-brand-300">
           <Save size={15} className="flex-shrink-0" />
           <span>
@@ -304,6 +366,13 @@ export default function SupplierForm({ form }: { form: Form }) {
             {saveState === 'saving' && <span className="opacity-70"> Saving…</span>}
             {saveState === 'error' && <span className="text-red-600 dark:text-red-400"> Couldn&apos;t save — check your connection.</span>}
           </span>
+        </div>
+      )}
+
+      {recordState === 'editing' && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs md:text-sm text-amber-700 dark:text-amber-300">
+          <Save size={15} className="flex-shrink-0" />
+          <span>You are editing your submitted response. Changes are saved when you press &quot;Save changes&quot;.</span>
         </div>
       )}
 
@@ -491,7 +560,9 @@ export default function SupplierForm({ form }: { form: Form }) {
         className="btn btn-primary w-full justify-center py-2 md:py-2.5 text-sm md:text-base mt-2"
       >
         {submitting ? (
-          <><Loader2 size={15} className="animate-spin" /> Submitting…</>
+          <><Loader2 size={15} className="animate-spin" /> {recordState === 'editing' ? 'Saving…' : 'Submitting…'}</>
+        ) : recordState === 'editing' ? (
+          'Save changes'
         ) : (
           'Submit'
         )}
