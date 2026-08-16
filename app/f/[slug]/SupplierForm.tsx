@@ -1,18 +1,93 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
-import { CheckCircle, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { CheckCircle, Loader2, Save } from 'lucide-react'
+
+const AUTOSAVE_DELAY_MS = 1500
 
 export default function SupplierForm({ form }: { form: Form }) {
-  const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>({})
-  const [files, setFiles] = useState<Record<string, File>>({})
+  const [uploadStatus, setUploadStatus] = useState<Record<string, 'uploading' | 'done' | 'error'>>({})
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [resumeToken, setResumeToken] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  const resumeTokenRef = useRef<string | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlightRef = useRef(false)
+  const pendingRef = useRef(false)
+  const hydratedRef = useRef(false)
+
+  // Hydrate from a resume link, if present, before any autosave is allowed to fire.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('resume')
+    if (!token) {
+      hydratedRef.current = true
+      return
+    }
+    fetch(`/api/submissions/draft?formId=${form.id}&token=${token}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(result => {
+        if (result?.data) {
+          setValues(result.data)
+          resumeTokenRef.current = token
+          setResumeToken(token)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        hydratedRef.current = true
+      })
+  }, [form.id])
+
+  async function triggerSave(currentValues: Record<string, string>) {
+    if (inFlightRef.current) {
+      pendingRef.current = true
+      return
+    }
+    inFlightRef.current = true
+    setSaveState('saving')
+    try {
+      const res = await fetch('/api/submissions/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId: form.id, resumeToken: resumeTokenRef.current, data: currentValues }),
+      })
+      if (!res.ok) throw new Error('draft save failed')
+      const json = await res.json()
+      if (json.resumeToken && json.resumeToken !== resumeTokenRef.current) {
+        resumeTokenRef.current = json.resumeToken
+        setResumeToken(json.resumeToken)
+        const url = new URL(window.location.href)
+        url.searchParams.set('resume', json.resumeToken)
+        window.history.replaceState(null, '', url.toString())
+      }
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    } finally {
+      inFlightRef.current = false
+      if (pendingRef.current) {
+        pendingRef.current = false
+        triggerSave(currentValues)
+      }
+    }
+  }
+
+  // Debounced autosave whenever the answers change.
+  useEffect(() => {
+    if (!hydratedRef.current || submitted || Object.keys(values).length === 0) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => triggerSave(values), AUTOSAVE_DELAY_MS)
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, submitted])
 
   function set(id: string, value: string) {
     setValues(prev => ({ ...prev, [id]: value }))
@@ -21,10 +96,10 @@ export default function SupplierForm({ form }: { form: Form }) {
 
   function evaluateCondition(fieldValue: string | undefined, operator: string, triggerValue: string | number): boolean {
     if (fieldValue === undefined || fieldValue === '') return false
-    
+
     const numValue = parseFloat(fieldValue)
     const numTrigger = typeof triggerValue === 'number' ? triggerValue : parseFloat(triggerValue)
-    
+
     switch (operator) {
       case '===':
         return fieldValue === String(triggerValue)
@@ -51,10 +126,10 @@ export default function SupplierForm({ form }: { form: Form }) {
 
   function isFieldVisible(field: typeof form.fields[0]): boolean {
     if (!field.dependsOn) return true
-    
+
     // Handle both single rule and array of rules
     const rules = Array.isArray(field.dependsOn) ? field.dependsOn : [field.dependsOn]
-    
+
     // ALL rules must be true (AND logic)
     return rules.every(rule => {
       const dependentFieldValue = values[rule.fieldLabel]
@@ -74,22 +149,22 @@ export default function SupplierForm({ form }: { form: Form }) {
     form.fields.forEach(f => {
       const isVisible = isFieldVisible(f)
       const value = values[f.label]?.trim()
-      
+
       // Skip section headers
       if (f.section === 'SECTION_HEADER') return
-      
+
       if (isVisible && f.required && !value) {
         errs[f.label] = 'This field is required'
         return
       }
-      
+
       if (!isVisible) return
-      
+
       // Type-specific validation
       if (f.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
         errs[f.label] = 'Please enter a valid email'
       }
-      
+
       // Number constraints
       if (f.type === 'number' && value) {
         const numValue = parseFloat(value)
@@ -101,7 +176,7 @@ export default function SupplierForm({ form }: { form: Form }) {
           errs[f.label] = `Maximum value is ${f.maxValue}`
         }
       }
-      
+
       // Text length constraints
       if ((f.type === 'text' || f.type === 'textarea') && value) {
         if (f.minLength !== undefined && value.length < f.minLength) {
@@ -114,51 +189,40 @@ export default function SupplierForm({ form }: { form: Form }) {
     return errs
   }
 
+  async function handleUploadChange(field: typeof form.fields[0], file: File | undefined) {
+    if (!file) return
+    setUploadStatus(prev => ({ ...prev, [field.label]: 'uploading' }))
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`)
+      const responseData = await uploadRes.json()
+      set(field.label, responseData.url)
+      setUploadStatus(prev => ({ ...prev, [field.label]: 'done' }))
+    } catch (error) {
+      console.error(`[v0] Failed to upload file for ${field.label}:`, error)
+      setUploadStatus(prev => ({ ...prev, [field.label]: 'error' }))
+      setErrors(prev => ({ ...prev, [field.label]: 'Upload failed — please try again' }))
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (Object.values(uploadStatus).some(s => s === 'uploading')) {
+      setErrors({ submit: 'Please wait for file uploads to finish' })
+      return
+    }
+
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSubmitting(true)
-    
+
     try {
-      let submissionData = { ...values }
-      
-      // Upload files to Blob and replace filenames with URLs
-      if (Object.keys(files).length > 0) {
-        const uploadPromises = Object.entries(files).map(async ([fieldName, file]) => {
-          if (!file) return
-          
-          try {
-            console.log(`[v0] Uploading file for ${fieldName}:`, file.name, file.size, file.type)
-            const formData = new FormData()
-            formData.append('file', file)
-            
-            const uploadRes = await fetch('/api/upload', {
-              method: 'POST',
-              body: formData,
-            })
-
-            if (!uploadRes.ok) {
-              const errorText = await uploadRes.text()
-              console.error(`[v0] Upload failed (${uploadRes.status}):`, errorText)
-              throw new Error(`Upload failed: ${uploadRes.status}`)
-            }
-
-            const responseData = await uploadRes.json()
-            console.log(`[v0] Upload successful for ${fieldName}:`, responseData.url)
-            submissionData[fieldName] = responseData.url
-          } catch (error) {
-            console.error(`[v0] Failed to upload file for ${fieldName}:`, error)
-            throw new Error(`Failed to upload ${fieldName}: ${String(error)}`)
-          }
-        })
-        
-        await Promise.all(uploadPromises)
-      }
-      
-      console.log('[v0] Final submission data:', submissionData)
-      await createSubmission(form.id, submissionData)
+      await createSubmission(form.id, values, resumeTokenRef.current ?? undefined)
       setSubmitted(true)
+      window.history.replaceState(null, '', window.location.pathname)
     } catch (error) {
       console.error('[v0] Submit error:', error)
       setErrors({ submit: String(error) })
@@ -182,6 +246,10 @@ export default function SupplierForm({ form }: { form: Form }) {
             setSubmitted(false)
             setValues({})
             setErrors({})
+            setUploadStatus({})
+            resumeTokenRef.current = null
+            setResumeToken(null)
+            setSaveState('idle')
           }}
           className="inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white font-semibold rounded-lg hover:from-brand-700 hover:to-brand-800 transition-all shadow-md hover:shadow-lg text-sm md:text-base"
         >
@@ -195,9 +263,9 @@ export default function SupplierForm({ form }: { form: Form }) {
     <form onSubmit={handleSubmit} className="card p-4 md:p-6 space-y-4 md:space-y-6 dark:bg-gray-800 dark:border-gray-700">
       {/* Logo and title */}
       <div className="text-center mb-6 md:mb-8 pb-4 md:pb-6 border-b border-gray-100 dark:border-gray-700">
-        <Image 
-          src="/exp-logo.png" 
-          alt="Exp Forms" 
+        <Image
+          src="/exp-logo.png"
+          alt="Exp Forms"
           width={50}
           height={50}
           className="mx-auto mb-3 md:mb-4 w-12 md:w-16"
@@ -208,9 +276,20 @@ export default function SupplierForm({ form }: { form: Form }) {
         )}
       </div>
 
+      {resumeToken && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 text-xs md:text-sm text-brand-700 dark:text-brand-300">
+          <Save size={15} className="flex-shrink-0" />
+          <span>
+            Your progress is saved. Bookmark this page to finish later.
+            {saveState === 'saving' && <span className="opacity-70"> Saving…</span>}
+            {saveState === 'error' && <span className="text-red-600 dark:text-red-400"> Couldn&apos;t save — check your connection.</span>}
+          </span>
+        </div>
+      )}
+
       {form.fields.map(field => {
         const isVisible = isFieldVisible(field)
-        
+
         // Skip rendering section headers, just show them as dividers
         if (isVisible && field.section === 'SECTION_HEADER') {
           return (
@@ -219,7 +298,7 @@ export default function SupplierForm({ form }: { form: Form }) {
             </div>
           )
         }
-        
+
         return isVisible ? (
         <div key={field.id}>
           <label className="label dark:text-gray-300">
@@ -249,7 +328,7 @@ export default function SupplierForm({ form }: { form: Form }) {
                   return <option key={idx} value={label}>{label}</option>
                 })}
               </select>
-              
+
               {values[field.label] && getSuboptionsForCategory(values[field.label], field).length > 0 && (
                 <div>
                   <label className={`label dark:text-gray-300 text-sm ${field.suboptionsRequired ? '' : 'opacity-75'}`}>
@@ -290,15 +369,14 @@ export default function SupplierForm({ form }: { form: Form }) {
                 } else if (typeof opt === 'object' && opt !== null) {
                   label = (opt.label || (opt as any).value || '').toString().trim()
                 }
-                
+
                 if (!label) {
-                  console.log("[v0] Skipping empty label for option", idx, opt)
                   return null // Skip empty labels
                 }
-                
+
                 const selectedValues = (values[field.label] || '').split('||').filter(v => v.trim())
                 const isChecked = selectedValues.some(v => v.trim() === label)
-                
+
                 return (
                   <label key={idx} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 p-2 rounded transition-colors">
                     <input
@@ -335,23 +413,18 @@ export default function SupplierForm({ form }: { form: Form }) {
               <input
                 type="file"
                 accept={field.acceptedFileTypes?.join(',')}
-                required={field.required}
-                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-900 dark:file:text-brand-300 hover:file:bg-brand-200 ${errors[field.label] ? 'border-red-400' : ''}`}
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  console.log('[v0] File selected:', file?.name, 'for field:', field.label)
-                  if (file) {
-                    setFiles(prev => {
-                      const updated = { ...prev, [field.label]: file }
-                      console.log('[v0] Files state updated:', updated)
-                      return updated
-                    })
-                    set(field.label, file.name)
-                  }
-                }}
+                required={field.required && uploadStatus[field.label] !== 'done'}
+                disabled={uploadStatus[field.label] === 'uploading'}
+                className={`input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-900 dark:file:text-brand-300 hover:file:bg-brand-200 disabled:opacity-60 ${errors[field.label] ? 'border-red-400' : ''}`}
+                onChange={e => handleUploadChange(field, e.target.files?.[0])}
               />
-              {files[field.label] && (
-                <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ {files[field.label].name}</p>
+              {uploadStatus[field.label] === 'uploading' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin" /> Uploading…
+                </p>
+              )}
+              {uploadStatus[field.label] === 'done' && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Uploaded</p>
               )}
               {field.acceptedFileTypes && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
