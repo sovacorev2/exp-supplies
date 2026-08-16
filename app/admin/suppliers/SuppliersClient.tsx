@@ -22,7 +22,6 @@ export default function SuppliersClient({
   const [refreshing, setRefreshing] = useState(false)
   const [selected, setSelected] = useState<Submission | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deletePassword, setDeletePassword] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
@@ -200,19 +199,14 @@ export default function SuppliersClient({
   }
 
   async function handleDeleteResponse() {
-    if (!selected || !deletePassword.trim()) {
-      setDeleteError('Please enter the admin password')
-      return
-    }
+    if (!selected) return
 
     setDeleting(true)
     setDeleteError('')
-    
+
     try {
       const response = await fetch(`/api/submissions/${selected.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: deletePassword }),
       })
 
       if (!response.ok) {
@@ -222,7 +216,6 @@ export default function SuppliersClient({
       }
 
       setShowDeleteModal(false)
-      setDeletePassword('')
       setSelected(null)
       router.refresh()
     } catch (error) {
@@ -515,10 +508,9 @@ export default function SuppliersClient({
             </div>
 
             <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 space-y-3">
-              <button 
+              <button
                 onClick={() => {
                   setShowDeleteModal(true)
-                  setDeletePassword('')
                   setDeleteError('')
                 }}
                 className="w-full btn bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-2 px-4 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
@@ -540,21 +532,8 @@ export default function SuppliersClient({
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Response</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  This action cannot be undone. Enter the admin password to confirm deletion.
+                  This action cannot be undone. Are you sure you want to delete this response?
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="label text-sm">Admin Password</label>
-                <input
-                  type="password"
-                  className="input w-full"
-                  placeholder="Enter admin password"
-                  value={deletePassword}
-                  onChange={e => setDeletePassword(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleDeleteResponse()}
-                  autoFocus
-                />
                 {deleteError && (
                   <p className="text-xs text-red-500 dark:text-red-400 mt-2">{deleteError}</p>
                 )}
@@ -564,7 +543,6 @@ export default function SuppliersClient({
                 <button
                   onClick={() => {
                     setShowDeleteModal(false)
-                    setDeletePassword('')
                     setDeleteError('')
                   }}
                   className="flex-1 btn bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold py-2 rounded-lg transition-colors"

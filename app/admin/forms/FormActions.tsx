@@ -8,8 +8,6 @@ declare global {
   interface Window { __reloadForms?: () => void }
 }
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'exp.admin'
-
 export default function FormActions({
   formId,
   formUrl,
@@ -29,7 +27,6 @@ export default function FormActions({
   const [shareError, setShareError] = useState('')
   const [shareLoading, setShareLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
-  const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
   const router = useRouter()
 
@@ -90,17 +87,19 @@ export default function FormActions({
   }
 
   async function handleDelete() {
-    if (deletePassword !== ADMIN_PASSWORD) {
-      setDeleteError('Invalid password')
-      return
-    }
-    
     setLoading(true)
+    setDeleteError('')
     try {
       const res = await fetch(`/api/forms/${formId}`, { method: 'DELETE' })
       if (res.ok) {
-        window.location.href = `/admin/forms?auth=true`
+        setDeleteConfirm(false)
+        router.refresh()
+      } else {
+        const data = await res.json()
+        setDeleteError(data.error || 'Failed to delete form')
       }
+    } catch (error) {
+      setDeleteError('Error deleting form')
     } finally {
       setLoading(false)
     }
@@ -194,19 +193,8 @@ export default function FormActions({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-sm p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Form</h3>
-            <p className="text-sm text-gray-600 mb-4">Enter your admin password to delete this form. This action cannot be undone.</p>
-            
-            <input
-              type="password"
-              placeholder="Admin password"
-              value={deletePassword}
-              onChange={e => {
-                setDeletePassword(e.target.value)
-                setDeleteError('')
-              }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg mb-2 text-sm focus:outline-none focus:border-red-500"
-            />
-            
+            <p className="text-sm text-gray-600 mb-4">This will permanently delete this form and all its submissions. This action cannot be undone.</p>
+
             {deleteError && (
               <p className="text-xs text-red-600 mb-4">{deleteError}</p>
             )}
@@ -215,7 +203,6 @@ export default function FormActions({
               <button
                 onClick={() => {
                   setDeleteConfirm(false)
-                  setDeletePassword('')
                   setDeleteError('')
                 }}
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -224,7 +211,7 @@ export default function FormActions({
               </button>
               <button
                 onClick={handleDelete}
-                disabled={loading || !deletePassword}
+                disabled={loading}
                 className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
               >
                 {loading ? 'Deleting...' : 'Delete'}
