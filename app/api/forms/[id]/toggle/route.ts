@@ -1,5 +1,6 @@
 import { toggleFormActive } from '@/app/actions/forms'
 import { NextResponse } from 'next/server'
+import { errorToStatus } from '@/lib/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,6 @@ export async function POST(
     await toggleFormActive(id, is_active)
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return NextResponse.json({ error: String(err) }, { status: errorToStatus(err) })
   }
 }

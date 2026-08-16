@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { forms, submissions, shareTokens, analyticsTokens } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
+import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload'
 
@@ -46,6 +47,7 @@ export interface Form {
   fields: FormField[]
   is_active: boolean
   slug: string
+  user_id: string | null
   created_at: Date
   updated_at: Date
 }
@@ -61,10 +63,42 @@ export interface Submission {
   forms?: Pick<Form, 'name' | 'category' | 'slug'>
 }
 
+// ── Ownership helpers ──────────────────────────────────────────────────
+
+async function getOwnedForm(id: string, currentUser: CurrentUser) {
+  const rows = await db.select().from(forms).where(eq(forms.id, id)).limit(1)
+  const row = rows[0] as any
+  if (!row) throw new Error('Form not found')
+  if (currentUser.role !== 'admin' && row.user_id !== currentUser.id) throw new ForbiddenError()
+  return row
+}
+
+async function getOwnedSubmission(id: string, currentUser: CurrentUser) {
+  const rows = await db
+    .select()
+    .from(submissions)
+    .leftJoin(forms, eq(submissions.form_id, forms.id))
+    .where(eq(submissions.id, id))
+    .limit(1)
+  const row = rows[0] as any
+  if (!row) throw new Error('Submission not found')
+  if (currentUser.role !== 'admin' && row.forms?.user_id !== currentUser.id) throw new ForbiddenError()
+  return row
+}
+
 // ── Forms API ──────────────────────────────────────────────────────────
 
 export async function getForms(): Promise<Form[]> {
-  const rows = await db.select().from(forms).orderBy(desc(forms.created_at))
+  const currentUser = await requireUser()
+  const rows =
+    currentUser.role === 'admin'
+      ? await db.select().from(forms).orderBy(desc(forms.created_at))
+      : await db
+          .select()
+          .from(forms)
+          .where(eq(forms.user_id, currentUser.id))
+          .orderBy(desc(forms.created_at))
+
   return rows.map((row: any) => ({
     ...row,
     fields: typeof row.fields === 'string' ? JSON.parse(row.fields) : row.fields || [],
@@ -79,7 +113,7 @@ export async function getFormBySlug(slug: string): Promise<Form> {
     .limit(1)
 
   if (!rows[0]) throw new Error('Form not found')
-  
+
   const row = rows[0] as any
   return {
     ...row,
@@ -88,8 +122,9 @@ export async function getFormBySlug(slug: string): Promise<Form> {
 }
 
 export async function createForm(
-  form: Omit<Form, 'id' | 'created_at' | 'updated_at'>
+  form: Omit<Form, 'id' | 'created_at' | 'updated_at' | 'user_id'>
 ): Promise<Form> {
+  const currentUser = await requireUser()
   const rows = await db
     .insert(forms)
     .values({
@@ -99,6 +134,7 @@ export async function createForm(
       fields: form.fields as unknown as any,
       is_active: form.is_active,
       slug: form.slug,
+      user_id: currentUser.id,
     })
     .returning()
 
@@ -110,8 +146,11 @@ export async function createForm(
 }
 
 export async function updateForm(id: string, updates: Partial<Form>): Promise<Form> {
+  const currentUser = await requireUser()
+  await getOwnedForm(id, currentUser)
+
   const updateData: Record<string, any> = {}
-  
+
   if (updates.name !== undefined) updateData.name = updates.name
   if (updates.description !== undefined) updateData.description = updates.description ?? null
   if (updates.category !== undefined) updateData.category = updates.category
@@ -132,21 +171,36 @@ export async function updateForm(id: string, updates: Partial<Form>): Promise<Fo
 }
 
 export async function deleteForm(id: string): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedForm(id, currentUser)
+  // Delete all submissions for this form first
+  await db.delete(submissions).where(eq(submissions.form_id, id))
   await db.delete(forms).where(eq(forms.id, id))
 }
 
 export async function toggleFormActive(id: string, is_active: boolean): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedForm(id, currentUser)
   await db.update(forms).set({ is_active }).where(eq(forms.id, id))
 }
 
 // ── Submissions API ────────────────────────────────────────────────────
 
 export async function getSubmissions(): Promise<Submission[]> {
-  const rows = await db
-    .select()
-    .from(submissions)
-    .leftJoin(forms, eq(submissions.form_id, forms.id))
-    .orderBy(desc(submissions.created_at))
+  const currentUser = await requireUser()
+  const rows =
+    currentUser.role === 'admin'
+      ? await db
+          .select()
+          .from(submissions)
+          .leftJoin(forms, eq(submissions.form_id, forms.id))
+          .orderBy(desc(submissions.created_at))
+      : await db
+          .select()
+          .from(submissions)
+          .leftJoin(forms, eq(submissions.form_id, forms.id))
+          .where(eq(forms.user_id, currentUser.id))
+          .orderBy(desc(submissions.created_at))
 
   return rows.map((row: any) => {
     const submission = row.submissions
@@ -184,6 +238,9 @@ export async function updateSubmissionStatus(
   status: 'pending' | 'approved' | 'rejected',
   notes?: string
 ): Promise<Submission> {
+  const currentUser = await requireUser()
+  await getOwnedSubmission(id, currentUser)
+
   const rows = await db
     .update(submissions)
     .set({
@@ -202,16 +259,17 @@ export async function updateSubmissionStatus(
 }
 
 export async function deleteSubmission(id: string): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedSubmission(id, currentUser)
   await db.delete(submissions).where(eq(submissions.id, id))
 }
-
-
-
-// ── Dashboard stats ────────────────────────────────────────────────────
 
 // ── Share tokens ────────────────────────────────────────────────────────
 
 export async function createShareToken(formId: string): Promise<string> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+
   const token = randomBytes(16).toString('hex')
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   await db.insert(shareTokens).values({
@@ -247,6 +305,9 @@ export async function getSharedFormData(token: string) {
 // ── Analytics tokens ────────────────────────────────────────────────────
 
 export async function createAnalyticsToken(formId: string): Promise<string> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+
   const token = randomBytes(16).toString('hex')
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
   await db.insert(analyticsTokens).values({
@@ -282,8 +343,22 @@ export async function getAnalyticsData(token: string) {
 // ── Dashboard stats ────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
-  const allForms: any[] = await db.select().from(forms)
-  const allSubmissions: any[] = await db.select().from(submissions)
+  const currentUser = await requireUser()
+  const isAdmin = currentUser.role === 'admin'
+
+  const allForms: any[] = isAdmin
+    ? await db.select().from(forms)
+    : await db.select().from(forms).where(eq(forms.user_id, currentUser.id))
+
+  const allSubmissions: any[] = isAdmin
+    ? await db.select().from(submissions)
+    : (
+        await db
+          .select()
+          .from(submissions)
+          .leftJoin(forms, eq(submissions.form_id, forms.id))
+          .where(eq(forms.user_id, currentUser.id))
+      ).map((row: any) => row.submissions)
 
   const categoryCounts: any = {}
   allForms.forEach((form: any) => {
@@ -300,5 +375,3 @@ export async function getDashboardStats() {
     categoryCounts,
   }
 }
-
-

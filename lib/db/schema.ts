@@ -10,6 +10,7 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
   image: text('image'),
+  role: text('role').notNull().default('user'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
@@ -64,6 +65,7 @@ export const forms = pgTable('forms', {
   fields: jsonb('fields').notNull().default([]),
   is_active: boolean('is_active').notNull().default(true),
   slug: text('slug').notNull().unique(),
+  user_id: text('user_id').references(() => user.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -98,4 +100,10 @@ export const analyticsTokens = pgTable('analytics_tokens', {
   token: text('token').notNull().unique(),
   created_at: timestamp('created_at').notNull().defaultNow(),
   expires_at: timestamp('expires_at').notNull(),
+})
+
+export const adminLoginAttempts = pgTable('admin_login_attempts', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  ip: text('ip').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 })

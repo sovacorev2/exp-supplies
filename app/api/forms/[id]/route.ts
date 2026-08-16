@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { forms, submissions } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { updateForm, deleteForm } from '@/app/actions/forms'
+import { errorToStatus } from '@/lib/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,35 +11,28 @@ export async function PATCH(
   try {
     const { id } = await params
     const { is_active } = await request.json()
-    
-    await db
-      .update(forms)
-      .set({ is_active })
-      .where(eq(forms.id, id))
-    
+
+    await updateForm(id, { is_active })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[v0] Error updating form:', error)
-    return NextResponse.json({ error: 'Failed to update form' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update form' }, { status: errorToStatus(error) })
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    
-    // Delete all submissions for this form first
-    await db.delete(submissions).where(eq(submissions.form_id, id))
-    
-    // Delete the form
-    await db.delete(forms).where(eq(forms.id, id))
-    
+
+    await deleteForm(id)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[v0] Error deleting form:', error)
-    return NextResponse.json({ error: 'Failed to delete form' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete form' }, { status: errorToStatus(error) })
   }
 }
