@@ -1,16 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X, Moon, Sun, LogOut, FileText, ClipboardList } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Menu, X, Moon, Sun, LogOut, ShieldCheck } from 'lucide-react'
+import clsx from 'clsx'
+import { nav, type AdminShellUser } from '@/components/admin-nav'
 
 interface MobileNavProps {
+  user: AdminShellUser
   theme: 'light' | 'dark'
   onToggleTheme: () => void
   onLogout: () => void
 }
 
-export default function MobileNav({ theme, onToggleTheme, onLogout }: MobileNavProps) {
+export default function MobileNav({ user, theme, onToggleTheme, onLogout }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
 
   const closeMenu = () => setIsOpen(false)
 
@@ -47,25 +53,38 @@ export default function MobileNav({ theme, onToggleTheme, onLogout }: MobileNavP
       >
         <div className="flex flex-col h-full">
           {/* Menu Items */}
-          <nav className="flex-1 p-4 space-y-2">
-            <a
-              href="/admin"
-              onClick={closeMenu}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-brand-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <FileText size={18} /> Forms
-            </a>
-            <a
-              href="/admin/suppliers"
-              onClick={closeMenu}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-brand-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 font-medium"
-            >
-              <ClipboardList size={18} /> Responses
-            </a>
+          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {nav.map(item => {
+              const Icon = item.icon
+              const active = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMenu}
+                  className={clsx(
+                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium',
+                    active
+                      ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-gray-700'
+                  )}
+                >
+                  <Icon size={18} /> {item.label}
+                </Link>
+              )
+            })}
           </nav>
 
           {/* Menu Footer */}
           <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-2">
+            <div className="px-4 py-1.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span className="truncate font-medium">{user.name || user.email}</span>
+              {user.role === 'admin' && (
+                <span title="Admin" className="inline-flex items-center gap-1 text-brand-600 flex-shrink-0">
+                  <ShieldCheck size={12} /> Admin
+                </span>
+              )}
+            </div>
             <button
               onClick={() => {
                 onToggleTheme()

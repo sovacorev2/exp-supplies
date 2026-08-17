@@ -4,25 +4,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  LayoutDashboard, FileText, PlusCircle, LogOut, Moon, Sun, BarChart2, ShieldCheck
-} from 'lucide-react'
+import { LogOut, Moon, Sun, ShieldCheck } from 'lucide-react'
 import clsx from 'clsx'
 import MobileNav from '@/components/MobileNav'
+import { nav, type AdminShellUser } from '@/components/admin-nav'
 import { authClient } from '@/lib/auth-client'
-
-const nav = [
-  { label: 'Dashboard',    href: '/admin',                icon: LayoutDashboard },
-  { label: 'Forms',        href: '/admin/forms',          icon: FileText,   section: 'Forms' },
-  { label: 'New form',     href: '/admin/forms/new',      icon: PlusCircle },
-  { label: 'Analytics',   href: '/admin/analytics',      icon: BarChart2,  section: 'Analytics' },
-]
-
-interface AdminShellUser {
-  name: string
-  email: string
-  role: string
-}
 
 export default function AdminShellClient({ user, children }: { user: AdminShellUser; children: React.ReactNode }) {
   const pathname = usePathname()
@@ -59,7 +45,7 @@ export default function AdminShellClient({ user, children }: { user: AdminShellU
 
   return (
     <>
-      <MobileNav theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
+      <MobileNav user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
       <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
         {/* Sidebar */}
         <aside className="hidden md:flex w-56 flex-shrink-0 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-r border-brand-100 dark:border-gray-700 flex-col shadow-sm">
