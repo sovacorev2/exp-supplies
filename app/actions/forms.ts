@@ -1,11 +1,22 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens, invitees } from '@/lib/db/schema'
-import { eq, desc, ne, and, or } from 'drizzle-orm'
+import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts } from '@/lib/db/schema'
+import { eq, desc, ne, and, or, gt } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
+import { headers } from 'next/headers'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 import { sendEmail } from '@/lib/email'
+
+const RATE_LIMIT_WINDOW_MINUTES = 15
+const RATE_LIMIT_MAX_ATTEMPTS = 5
+
+async function getSubmitterIp(): Promise<string> {
+  const h = await headers()
+  const forwardedFor = h.get('x-forwarded-for')
+  if (forwardedFor) return forwardedFor.split(',')[0].trim()
+  return h.get('x-real-ip') || 'unknown'
+}
 
 export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload' | 'rating' | 'matrix'
 
@@ -252,8 +263,15 @@ export async function createSubmission(
   formId: string,
   data: Record<string, string>,
   resumeToken?: string,
-  inviteeId?: string
-): Promise<{ resumeToken: string } | { error: 'locked' }> {
+  inviteeId?: string,
+  honeypot?: string
+): Promise<{ resumeToken: string } | { error: 'locked' | 'rate_limited' }> {
+  // A filled honeypot means a bot — pretend success without touching the
+  // database at all (no query, no rate-limit budget consumed).
+  if (honeypot) {
+    return { resumeToken: randomBytes(16).toString('hex') }
+  }
+
   if (resumeToken) {
     const rows = await db
       .update(submissions)
@@ -283,6 +301,25 @@ export async function createSubmission(
     }
     // otherwise: stale/foreign token — fall through, mint a fresh submission
   }
+
+  // Rate limit only applies here — this is the path a bot spamming the
+  // public form endpoint directly (not replaying the draft-autosave flow)
+  // actually hits. A legitimate draft-to-pending conversion or edit-resave
+  // already returned above via the resumeToken branch.
+  const ip = await getSubmitterIp()
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000)
+  const recentAttempts = await db
+    .select()
+    .from(submissionAttempts)
+    .where(and(
+      eq(submissionAttempts.ip, ip),
+      eq(submissionAttempts.form_id, formId),
+      gt(submissionAttempts.created_at, windowStart)
+    ))
+  if (recentAttempts.length >= RATE_LIMIT_MAX_ATTEMPTS) {
+    return { error: 'rate_limited' }
+  }
+  await db.insert(submissionAttempts).values({ ip, form_id: formId })
 
   const token = randomBytes(16).toString('hex')
   await db.insert(submissions).values({
