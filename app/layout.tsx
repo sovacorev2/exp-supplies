@@ -1,10 +1,19 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from './providers'
 
 export const metadata: Metadata = {
   title: 'Exp Forms',
   description: 'Data collection forms platform',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Exp Forms',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#d41820',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
