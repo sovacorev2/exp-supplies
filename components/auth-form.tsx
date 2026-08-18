@@ -44,7 +44,11 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
         }
         const { error } = await authClient.signUp.email({ email, password, name })
         if (error) {
-          setError(error.message || 'Could not create account')
+          setError(
+            error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'
+              ? 'An account with this email already exists. Sign in instead — if you originally signed up with Google, use "Continue with Google" below.'
+              : error.message || 'Could not create account'
+          )
           return
         }
       } else {
