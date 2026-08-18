@@ -46,7 +46,7 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
         if (error) {
           setError(
             error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'
-              ? 'An account with this email already exists. Sign in instead — if you originally signed up with Google, use "Continue with Google" below.'
+              ? 'An account with this email already exists. Sign in instead, or if you originally signed up with Google, use "Continue with Google" below.'
               : error.message || 'Could not create account'
           )
           return
@@ -55,7 +55,7 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
         const { error } = await authClient.signIn.email({ email, password })
         if (error) {
           setError(
-            `${error.message || 'Invalid email or password'} — if you originally signed up with Google, use "Continue with Google" above instead.`
+            `${error.message || 'Invalid email or password'} If you originally signed up with Google, use "Continue with Google" above instead.`
           )
           return
         }
@@ -110,7 +110,7 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
           </button>
           {mode === 'sign-in' && (
             <p className="text-xs text-gray-400 dark:text-gray-500 text-center -mt-3">
-              Signed up with Google? Use the button above — the fields below only work for accounts created with a password.
+              Signed up with Google? Use the button above. The fields below only work for accounts created with a password.
             </p>
           )}
 
