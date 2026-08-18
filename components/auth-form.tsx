@@ -54,7 +54,9 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
       } else {
         const { error } = await authClient.signIn.email({ email, password })
         if (error) {
-          setError(error.message || 'Invalid email or password')
+          setError(
+            `${error.message || 'Invalid email or password'} — if you originally signed up with Google, use "Continue with Google" above instead.`
+          )
           return
         }
       }
@@ -106,6 +108,11 @@ export default function AuthForm({ mode = 'sign-in' }: { mode: 'sign-in' | 'sign
             {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleIcon />}
             Continue with Google
           </button>
+          {mode === 'sign-in' && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center -mt-3">
+              Signed up with Google? Use the button above — the fields below only work for accounts created with a password.
+            </p>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
