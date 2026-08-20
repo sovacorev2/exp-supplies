@@ -83,18 +83,16 @@
   html { background: white; }
   body { background: white; margin: 0; padding: 0; }
 
-  /* Hide everything except the report. Tag/class selectors (header, nav,
-     .sidebar, #root, ...) are brittle against markup changes and don't
-     match this app's DOM (the admin shell uses <aside>, not .sidebar, and
-     there is no #root) — visibility cascading hides every wrapper no
-     matter how it's built, then the report opts back in explicitly. */
-  body * {
-    visibility: hidden !important;
-  }
-
-  #report-view,
-  #report-view * {
-    visibility: visible !important;
+  /* Hide everything except the report. #report-view is rendered via a
+     React portal directly under <body>, sibling to the whole app tree —
+     so hiding every other direct child of body removes the app (and all
+     its layout — sidebar, overflow-hidden scroll panes, flex containers)
+     from the print flow entirely. A visibility-only cascade was tried
+     first and printed blank pages: invisible ancestors still reserve
+     their layout box, and this app's flex/overflow-hidden shell pushed
+     the actual report content down past several pages of empty space. */
+  body > *:not(#report-view) {
+    display: none !important;
   }
 
   /* On screen #report-view sits off-canvas (position: fixed, negative

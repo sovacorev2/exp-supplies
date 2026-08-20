@@ -13,15 +13,17 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// Split the content into the same atomic units the page renders as
-// separate cards (stat grid, radar card, each field's chart card,
-// each section header) so pagination can keep a whole card together
-// instead of cutting it wherever a fixed page-height happens to fall.
+// Split the report into the same atomic units it renders as separate
+// pages/cards (cover page, each question's section, the footer) so
+// pagination can keep a whole one together instead of cutting it
+// wherever a fixed page-height happens to fall. Any wrapper marked
+// data-pdf-flatten contributes its children as individual blocks
+// instead of being captured as one giant image.
 function getBlocks(container: HTMLElement): HTMLElement[] {
   const blocks: HTMLElement[] = []
   Array.from(container.children).forEach(child => {
     const el = child as HTMLElement
-    if (el.classList.contains('space-y-4')) {
+    if (el.hasAttribute('data-pdf-flatten')) {
       Array.from(el.children).forEach(grandchild => blocks.push(grandchild as HTMLElement))
     } else {
       blocks.push(el)

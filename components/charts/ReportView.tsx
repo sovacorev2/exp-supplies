@@ -51,7 +51,7 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
       </div>
 
       {/* Page 2+: Content Pages */}
-      <div className="space-y-0">
+      <div className="space-y-0" data-pdf-flatten>
         {filteredFields.map((field: any, fieldIdx) => {
           if (field.section === 'SECTION_HEADER') {
             return (
