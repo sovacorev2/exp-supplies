@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -33,7 +34,6 @@ export default function AnalyticsClient({
   const [preparingReport, setPreparingReport] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportMenu, setExportMenu] = useState(false)
-  const contentRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -68,50 +68,73 @@ export default function AnalyticsClient({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleExportPDF() {
-    if (!contentRef.current) return
+  // Both "Print report" and "Download PDF" render the same clean
+  // ReportView (no dashboard chrome, no buttons) into #report-view and
+  // wait for it to actually paint before acting on it. The report sits
+  // off-canvas rather than display:none so recharts' ResizeObserver sees
+  // a real width and draws real charts instead of nothing — then this
+  // just polls for a few settled frames after the node shows up.
+  function ensureReportRendered(): Promise<HTMLElement> {
+    setShowReport(true)
+    return new Promise((resolve, reject) => {
+      let settledFrames = 0
+      let totalFrames = 0
+      function tick() {
+        totalFrames++
+        const node = document.getElementById('report-view')
+        // #report-view (the portal mount) exists the instant showReport
+        // flips true, but ReportView is a dynamic(ssr:false) import — on
+        // its first use the chunk is still loading and the mount is an
+        // empty wrapper. [data-pdf-flatten] only appears once ReportView
+        // itself has actually rendered, so wait on that instead.
+        const ready = node?.querySelector('[data-pdf-flatten]')
+        if (ready) settledFrames++
+        if (ready && settledFrames > 6) { resolve(node!); return }
+        if (totalFrames > 300) { reject(new Error('Report took too long to render')); return }
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+  }
+
+  async function handlePrintReport() {
+    if (!selectedForm) return
+    setExportMenu(false)
+    setPreparingReport(true)
+    try {
+      await ensureReportRendered()
+    } catch (err) {
+      console.error('[analytics] Error preparing report:', err)
+      alert('Failed to prepare the report')
+      setShowReport(false)
+      return
+    } finally {
+      setPreparingReport(false)
+    }
+    const cleanup = () => { setShowReport(false); window.removeEventListener('afterprint', cleanup) }
+    window.addEventListener('afterprint', cleanup)
+    window.print()
+  }
+
+  async function handleDownloadPDF() {
+    if (!selectedForm) return
     setExportMenu(false)
     setExportingPdf(true)
     try {
-      const title = selectedForm ? selectedForm.name : 'All Forms Overview'
-      await exportAnalyticsPDF(contentRef.current, title)
+      const node = await ensureReportRendered()
+      // #report-view is the portal mount; its one child is ReportView's
+      // own root — that root's direct children are the actual
+      // cover/question/footer blocks getBlocks() paginates on.
+      const reportRoot = (node.firstElementChild as HTMLElement) ?? node
+      await exportAnalyticsPDF(reportRoot, selectedForm.name)
     } catch (err) {
-      console.error('[v0] Error exporting PDF:', err)
+      console.error('[analytics] Error exporting PDF:', err)
       alert('Failed to export PDF')
     } finally {
       setExportingPdf(false)
+      setShowReport(false)
     }
   }
-
-  function handlePrintReport() {
-    setExportMenu(false)
-    setPreparingReport(true)
-    setShowReport(true)
-  }
-
-  // The report is mounted off-canvas (not display:none) as soon as
-  // showReport flips on, so recharts gets a real width to measure and
-  // paint charts against. Two animation frames later the paint has
-  // landed, so window.print() actually captures rendered charts instead
-  // of a blank first pass.
-  useEffect(() => {
-    if (!showReport) return
-    let cancelled = false
-    const raf1 = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (cancelled) return
-        setPreparingReport(false)
-        window.print()
-      })
-    })
-    function afterPrint() { setShowReport(false) }
-    window.addEventListener('afterprint', afterPrint)
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(raf1)
-      window.removeEventListener('afterprint', afterPrint)
-    }
-  }, [showReport])
 
   // ── List view ────────────────────────────────────────────────────────────
   function ListView() {
@@ -291,18 +314,33 @@ export default function AnalyticsClient({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setExportMenu(false)} />
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-50">
-                  {selectedForm && (
-                    <button
-                      onClick={handlePrintReport}
-                      className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <FileText size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                      <span>
-                        <span className="block text-sm font-semibold text-gray-900 dark:text-white">Print report</span>
-                        <span className="block text-xs text-gray-400">Branded, paginated report via your browser&apos;s print dialog</span>
-                      </span>
-                    </button>
+                  {!selectedForm && (
+                    <p className="px-3.5 pb-2 pt-1 text-xs text-gray-400 border-b border-gray-100 dark:border-gray-700 mb-1">
+                      Pick a form above to generate its report
+                    </p>
                   )}
+                  <button
+                    onClick={handlePrintReport}
+                    disabled={!selectedForm}
+                    className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FileText size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">Print report</span>
+                      <span className="block text-xs text-gray-400">Full data-analysis report — cover page, per-question charts, via your browser&apos;s print dialog</span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={!selectedForm || exportingPdf}
+                    className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FileDown size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">{exportingPdf ? 'Preparing PDF…' : 'Download PDF'}</span>
+                      <span className="block text-xs text-gray-400">Same report as a one-click PDF download</span>
+                    </span>
+                  </button>
                   <button
                     onClick={() => { exportCSV(filtered, selectedForm); setExportMenu(false) }}
                     className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -311,18 +349,6 @@ export default function AnalyticsClient({
                     <span>
                       <span className="block text-sm font-semibold text-gray-900 dark:text-white">Export CSV</span>
                       <span className="block text-xs text-gray-400">Raw responses, one row per submission</span>
-                    </span>
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    disabled={view !== 'analytics' || exportingPdf}
-                    title={view !== 'analytics' ? 'Switch to Analytics view to download a PDF' : undefined}
-                    className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <FileDown size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span>
-                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">{exportingPdf ? 'Exporting…' : 'Download PDF'}</span>
-                      <span className="block text-xs text-gray-400">Snapshot of the charts on screen right now</span>
                     </span>
                   </button>
                 </div>
@@ -369,7 +395,7 @@ export default function AnalyticsClient({
         {view === 'list' ? (
           <ListView />
         ) : (
-          <div ref={contentRef} className="bg-gray-50 dark:bg-gray-900">
+          <div className="bg-gray-50 dark:bg-gray-900">
             {selectedForm ? <FormAnalyticsView form={selectedForm} /> : <OverviewView />}
           </div>
         )}
@@ -425,13 +451,17 @@ export default function AnalyticsClient({
         </div>
       )}
 
-      {/* Report for printing — kept off-canvas (not display:none) so recharts
-          can measure a real width and paint before window.print() fires;
-          print.css pulls it into the page and hides everything else. */}
-      {showReport && selectedForm && (
+      {/* Report for printing/export — portaled to a direct child of <body>
+          so print CSS can hide the entire app (including its nested
+          overflow-hidden/flex layout) by just hiding body's other direct
+          children, instead of chasing every wrapper by tag or class. Kept
+          off-canvas (not display:none) so recharts can measure a real
+          width and paint before window.print()/html2canvas run. */}
+      {showReport && selectedForm && typeof document !== 'undefined' && createPortal(
         <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
           <ReportView form={selectedForm} submissions={filtered} />
-        </div>
+        </div>,
+        document.body
       )}
 
       {preparingReport && (
