@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
-import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Form, Submission } from '@/app/actions/forms'
@@ -30,7 +30,9 @@ export default function AnalyticsClient({
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const [preparingReport, setPreparingReport] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportMenu, setExportMenu] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
@@ -68,6 +70,7 @@ export default function AnalyticsClient({
 
   async function handleExportPDF() {
     if (!contentRef.current) return
+    setExportMenu(false)
     setExportingPdf(true)
     try {
       const title = selectedForm ? selectedForm.name : 'All Forms Overview'
@@ -79,6 +82,36 @@ export default function AnalyticsClient({
       setExportingPdf(false)
     }
   }
+
+  function handlePrintReport() {
+    setExportMenu(false)
+    setPreparingReport(true)
+    setShowReport(true)
+  }
+
+  // The report is mounted off-canvas (not display:none) as soon as
+  // showReport flips on, so recharts gets a real width to measure and
+  // paint charts against. Two animation frames later the paint has
+  // landed, so window.print() actually captures rendered charts instead
+  // of a blank first pass.
+  useEffect(() => {
+    if (!showReport) return
+    let cancelled = false
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return
+        setPreparingReport(false)
+        window.print()
+      })
+    })
+    function afterPrint() { setShowReport(false) }
+    window.addEventListener('afterprint', afterPrint)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf1)
+      window.removeEventListener('afterprint', afterPrint)
+    }
+  }, [showReport])
 
   // ── List view ────────────────────────────────────────────────────────────
   function ListView() {
@@ -198,7 +231,7 @@ export default function AnalyticsClient({
               <FieldCard
                 key={field.id}
                 field={field}
-                result={analyzeField(field, formSubs)}
+                result={analyzeField(field, formSubs, true)}
               />
             )
           })}
@@ -210,63 +243,96 @@ export default function AnalyticsClient({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-brand-600 dark:bg-brand-700 border-b border-brand-700 px-4 md:px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="font-bold text-xl text-white">Analytics</h1>
-          <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+      <header className="bg-brand-600 dark:bg-brand-700 border-b border-brand-700 px-3 sm:px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <h1 className="font-bold text-lg sm:text-xl text-white">Analytics</h1>
+          <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
             {filtered.length} responses
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {selectedForm && (
-            <button
-              onClick={() => { setShareModal(true); setShareLink(''); generateAnalyticsLink() }}
-              className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-md transition-colors"
-              title="Share analytics with a public link"
-            >
-              <Share2 size={14} /> Share
-            </button>
-          )}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
           {/* Tab switcher */}
           <div className="flex bg-black/20 rounded-lg p-1 gap-1">
             <button
               onClick={() => setView('analytics')}
-              className={`flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors ${view === 'analytics' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
+              className={`flex items-center gap-1.5 text-[13px] font-semibold px-2.5 sm:px-3 py-1.5 rounded-md transition-colors ${view === 'analytics' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
             >
-              <BarChart2 size={14} /> Analytics
+              <BarChart2 size={14} /> <span className="hidden sm:inline">Analytics</span>
             </button>
             <button
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
+              className={`flex items-center gap-1.5 text-[13px] font-semibold px-2.5 sm:px-3 py-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-white text-brand-700 shadow-sm' : 'text-white/80 hover:text-white'}`}
             >
-              <List size={14} /> List
+              <List size={14} /> <span className="hidden sm:inline">List</span>
             </button>
           </div>
+
           {selectedForm && (
             <button
-              onClick={() => { setShowReport(true); setTimeout(() => window.print(), 100) }}
-              className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+              onClick={() => { setShareModal(true); setShareLink(''); generateAnalyticsLink() }}
+              className="flex items-center gap-1.5 text-[13px] font-semibold p-2 sm:px-3 sm:py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-md transition-colors"
+              title="Share analytics with a public link"
             >
-              <FileText size={14} /> PDF Report
+              <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
             </button>
           )}
-          <button
-            onClick={() => exportCSV(filtered, selectedForm)}
-            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Download size={14} /> Export CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            disabled={view !== 'analytics' || exportingPdf}
-            title={view !== 'analytics' ? 'Switch to Analytics view to export PDF' : 'Export as PDF'}
-            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <FileDown size={14} /> {exportingPdf ? 'Exporting…' : 'Export PDF'}
-          </button>
+
+          {/* Export / report menu — one entry point instead of three
+              separate buttons, so the header stays usable at phone widths. */}
+          <div className="relative">
+            <button
+              onClick={() => setExportMenu(v => !v)}
+              className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 p-2 sm:px-3 sm:py-1.5 rounded-lg transition-colors"
+              title="Export"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span> <ChevronDown size={12} className="hidden sm:inline" />
+            </button>
+            {exportMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportMenu(false)} />
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-50">
+                  {selectedForm && (
+                    <button
+                      onClick={handlePrintReport}
+                      className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <FileText size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                      <span>
+                        <span className="block text-sm font-semibold text-gray-900 dark:text-white">Print report</span>
+                        <span className="block text-xs text-gray-400">Branded, paginated report via your browser&apos;s print dialog</span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { exportCSV(filtered, selectedForm); setExportMenu(false) }}
+                    className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Download size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">Export CSV</span>
+                      <span className="block text-xs text-gray-400">Raw responses, one row per submission</span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={view !== 'analytics' || exportingPdf}
+                    title={view !== 'analytics' ? 'Switch to Analytics view to download a PDF' : undefined}
+                    className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FileDown size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">{exportingPdf ? 'Exporting…' : 'Download PDF'}</span>
+                      <span className="block text-xs text-gray-400">Snapshot of the charts on screen right now</span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             onClick={() => router.refresh()}
-            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-[13px] font-semibold border border-white/30 text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
             title="Refresh"
           >
             <RefreshCw size={14} />
@@ -359,10 +425,21 @@ export default function AnalyticsClient({
         </div>
       )}
 
-      {/* Hidden Report for Printing */}
+      {/* Report for printing — kept off-canvas (not display:none) so recharts
+          can measure a real width and paint before window.print() fires;
+          print.css pulls it into the page and hides everything else. */}
       {showReport && selectedForm && (
-        <div id="report-view" className="hidden print:block">
+        <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
           <ReportView form={selectedForm} submissions={filtered} />
+        </div>
+      )}
+
+      {preparingReport && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl px-6 py-4 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-brand-500" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Preparing report…</span>
+          </div>
         </div>
       )}
     </div>

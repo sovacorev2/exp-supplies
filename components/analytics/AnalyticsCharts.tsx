@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts'
-import type { Bucket, FieldResult, RadarAxis } from '@/lib/analytics'
+import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
 import type { FormField } from '@/app/actions/forms'
 
 // ── colour palette (matches reference design) ──────────────────────────────
@@ -232,25 +232,73 @@ export function FieldCard({ field, result }: { field: FormField; result: FieldRe
     return <ChartCard title={field.label} meta={meta} tableRows={result.buckets}><BarList data={result.buckets} highlightMax /></ChartCard>
   }
   // text
+  return <TextFieldCard field={field} result={result} />
+}
+
+function TextFieldCard({ field, result }: { field: FormField; result: TextResult }) {
+  const [showAll, setShowAll] = useState(false)
   const rate = result.total > 0 ? Math.round((result.answered / result.total) * 100) : 0
+  const all  = result.allAnswers ?? []
+
   return (
-    <ChartCard title={field.label} meta="Open-ended" tableRows={result.topAnswers.map(b => ({ label: b.label, value: b.value }))}>
-      <StatTile label="Response rate" value={`${rate}%`} sub={`${result.answered} of ${result.total} answered`} />
-      {result.topAnswers.length >= 2 ? (
-        <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Most repeated answers</p>
-          <BarList data={result.topAnswers} />
-        </div>
-      ) : result.samples.length > 0 ? (
-        <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Sample responses</p>
-          <div className="flex flex-col gap-2">
-            {result.samples.slice(0, 3).map((s, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-[13px] text-gray-600 dark:text-gray-300 truncate">{s}</div>
-            ))}
+    <>
+      <ChartCard title={field.label} meta="Open-ended" tableRows={result.topAnswers.map(b => ({ label: b.label, value: b.value }))}>
+        <StatTile label="Response rate" value={`${rate}%`} sub={`${result.answered} of ${result.total} answered`} />
+        {(result.topAnswers.length >= 2 || result.samples.length > 0) && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                {result.topAnswers.length >= 2 ? 'Most repeated answers' : 'Sample responses'}
+              </p>
+              {result.answered > 0 && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="text-[12px] font-semibold text-brand-600 dark:text-brand-400 hover:underline flex-shrink-0"
+                >
+                  View all {result.answered} responses
+                </button>
+              )}
+            </div>
+            {result.topAnswers.length >= 2 ? (
+              <BarList data={result.topAnswers} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {result.samples.slice(0, 3).map((s, i) => (
+                  <div key={i} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-[13px] text-gray-600 dark:text-gray-300 truncate">{s}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </ChartCard>
+
+      {showAll && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAll(false)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">{field.label}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{all.length} response{all.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button
+                onClick={() => setShowAll(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none flex-shrink-0"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="overflow-y-auto px-5 py-4 flex flex-col gap-2">
+              {all.map((s, i) => (
+                <div key={i} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-[13px] text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{s}</div>
+              ))}
+            </div>
           </div>
         </div>
-      ) : null}
-    </ChartCard>
+      )}
+    </>
   )
 }

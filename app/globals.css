@@ -83,18 +83,36 @@
   html { background: white; }
   body { background: white; margin: 0; padding: 0; }
 
-  /* Hide everything except report */
-  #root, main, .sidebar, header, nav, footer, button, input, select {
-    display: none !important;
+  /* Hide everything except the report. Tag/class selectors (header, nav,
+     .sidebar, #root, ...) are brittle against markup changes and don't
+     match this app's DOM (the admin shell uses <aside>, not .sidebar, and
+     there is no #root) — visibility cascading hides every wrapper no
+     matter how it's built, then the report opts back in explicitly. */
+  body * {
+    visibility: hidden !important;
   }
 
+  #report-view,
+  #report-view * {
+    visibility: visible !important;
+  }
+
+  /* On screen #report-view sits off-canvas (position: fixed, negative
+     left) rather than display:none, so recharts can actually measure a
+     real width and paint its charts before window.print() fires — a
+     display:none ancestor reports 0×0 to ResizeObserver and recharts
+     renders blank. Printing pulls it back into normal document flow so
+     it paginates across pages instead of being clipped to one. */
   #report-view {
     display: block !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
     background: white !important;
     color: black !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 100%;
+    width: 100% !important;
   }
 
   /* Page setup - A4 with proper margins */
