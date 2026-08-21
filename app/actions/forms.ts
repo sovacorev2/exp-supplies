@@ -716,6 +716,7 @@ export type ReportNarrative = {
   recommendations: string[]
   conclusion: string
   fieldInsights: { fieldLabel: string; insight: string }[]
+  textSummaries: { fieldLabel: string; summary: string }[]
 }
 
 const NARRATIVE_SCHEMA = {
@@ -740,8 +741,21 @@ const NARRATIVE_SCHEMA = {
         required: ['fieldLabel', 'insight'],
       },
     },
+    // Replaces the raw "every individual answer" dump for open-ended text
+    // questions in the printed report with an actual thematic synthesis.
+    textSummaries: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          fieldLabel: { type: 'string' },
+          summary: { type: 'string' },
+        },
+        required: ['fieldLabel', 'summary'],
+      },
+    },
   },
-  required: ['summary', 'keyInsights', 'notableQuotes', 'recommendations', 'conclusion', 'fieldInsights'],
+  required: ['summary', 'keyInsights', 'notableQuotes', 'recommendations', 'conclusion', 'fieldInsights', 'textSummaries'],
 }
 
 function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string | null {
@@ -797,6 +811,7 @@ Write:
 - recommendations: 2-5 concrete, actionable recommendations based on the findings.
 - conclusion: a short closing paragraph.
 - fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldLabel to the exact question text as written above (the part before the parenthesis), so it can be matched back to the right chart.
+- textSummaries: for each "(open text, N answers)" question above, write a detailed 3-6 sentence thematic summary of ALL the answers listed for it — group similar feedback together, name specific products/samples respondents mention by name, call out the most frequently requested changes, and note any minority or conflicting opinions. This summary will completely replace showing every individual raw answer in the report, so it needs to be thorough enough that a reader doesn't need to see the raw list — don't just restate 2-3 examples and stop. Skip a text question entirely if it has fewer than 3 answered responses. Set fieldLabel to the exact question text as written above.
 
 Keep the tone professional and specific to this data — no generic filler. Respond only with the JSON described by the schema.`
 }

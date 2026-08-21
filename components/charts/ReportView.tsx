@@ -217,6 +217,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
           const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
           const responseRate = Math.round((answered / filteredSubs.length) * 100)
           const fieldInsight = findInsight(field.label)
+          const textSummary  = narrative?.textSummaries?.find(ts => ts.fieldLabel === field.label)
 
           return (
             <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
@@ -309,14 +310,23 @@ export default function ReportView({ form, submissions, narrative }: { form: For
 
               {result.kind === 'text' && (
                 <div className="mt-6">
-                  <p className="text-sm text-gray-600 mb-4 font-semibold">All {answered} Responses:</p>
-                  <div className="space-y-4">
-                    {result.allAnswers?.map((answer, i) => (
-                      <div key={i} className="response-item p-3 bg-gray-50 border-l-4 border-red-600 text-sm rounded">
-                        <p className="text-gray-900 m-0">{answer}</p>
+                  {textSummary ? (
+                    <>
+                      <p className="text-sm text-gray-600 mb-3 font-semibold">Summary of all {answered} responses</p>
+                      <p className="text-gray-800 leading-relaxed bg-gray-50 border-l-4 border-red-600 rounded p-4">{textSummary.summary}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600 mb-4 font-semibold">All {answered} Responses:</p>
+                      <div className="space-y-4">
+                        {result.allAnswers?.map((answer, i) => (
+                          <div key={i} className="response-item p-3 bg-gray-50 border-l-4 border-red-600 text-sm rounded">
+                            <p className="text-gray-900 m-0">{answer}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -451,7 +461,10 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                 </div>
               )}
 
-              <AnalystTake insight={fieldInsight?.insight} />
+              {/* Text fields with a textSummary already got a full LLM
+                  synthesis above — a second "Analyst take" blurb on the
+                  same field would just repeat itself. */}
+              {!textSummary && <AnalystTake insight={fieldInsight?.insight} />}
             </div>
           )
         })}
