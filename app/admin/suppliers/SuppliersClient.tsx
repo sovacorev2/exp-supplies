@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { type Submission, type Form } from '@/app/actions/forms'
 import { Search, Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
-import { exportCSV } from '@/lib/analytics'
+import { exportCSV, formatAnswerPreview } from '@/lib/analytics'
 
 export default function SuppliersClient({
   submissions,
@@ -400,7 +400,12 @@ export default function SuppliersClient({
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
               {filtered.map((sub: Submission) => {
-                const previewText = Object.values(sub.data).slice(0, 2).join(' • ')
+                const subForm = forms.find(f => f.id === sub.form_id)
+                const previewText = Object.entries(sub.data)
+                  .filter(([, v]) => v !== '' && v != null)
+                  .slice(0, 2)
+                  .map(([key, value]) => formatAnswerPreview(value, subForm?.fields.find(f => f.label === key)))
+                  .join(' • ')
                 return (
                   <tr
                     key={sub.id}

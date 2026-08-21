@@ -11,6 +11,19 @@ const PRIMARY = '#ED1C24' // brand-500, Pantone 485 C
 const SILVER  = '#6D6E71' // silver-500, Pantone 424 C
 const COLORS  = ['#ED1C24', '#6D6E71', '#b01319', '#d0d0d2', '#f7aaaa', '#575859', '#920e15', '#e7e7e8']
 
+// Heuristic, label-pattern based — same approach isPrivateField already
+// uses in lib/analytics.ts. Only pulls a field into the Participant
+// Profile section when its label actually matches; forms without any of
+// these questions render exactly as before, no empty section.
+const DEMOGRAPHIC_PATTERNS: { key: 'gender' | 'occupation' | 'location'; test: RegExp }[] = [
+  { key: 'gender',     test: /gender/i },
+  { key: 'occupation', test: /occupation|job title|profession/i },
+  { key: 'location',   test: /residence|location|estate|neighbou?rhood|which area|county|town|city/i },
+]
+function classifyDemographic(label: string) {
+  return DEMOGRAPHIC_PATTERNS.find(p => p.test.test(label))?.key ?? null
+}
+
 export default function ReportView({ form, submissions, narrative }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative }) {
   const filteredFields = form.fields?.filter((f: any) => !isPrivateField(f.label)) ?? []
   const filteredSubs = submissions.map(s => ({
@@ -19,6 +32,46 @@ export default function ReportView({ form, submissions, narrative }: { form: For
       Object.entries(s.data as any).filter(([k]) => !isPrivateField(k))
     ) as Record<string, string>,
   })) as Submission[]
+
+  const demographicFields = filteredFields.filter((f: any) => f.section !== 'SECTION_HEADER' && classifyDemographic(f.label))
+  const demographicIds    = new Set(demographicFields.map((f: any) => f.id))
+  // Everything else renders through the normal per-question loop below —
+  // demographic fields are pulled out here so they don't render twice.
+  const mainFields = filteredFields.filter((f: any) => f.section === 'SECTION_HEADER' || !demographicIds.has(f.id))
+
+  const genderField     = demographicFields.find((f: any) => classifyDemographic(f.label) === 'gender')
+  const occupationField = demographicFields.find((f: any) => classifyDemographic(f.label) === 'occupation')
+  const locationField   = demographicFields.find((f: any) => classifyDemographic(f.label) === 'location')
+
+  const genderResult     = genderField ? analyzeField(genderField, filteredSubs, true) : null
+  const occupationResult = occupationField ? analyzeField(occupationField, filteredSubs, true) : null
+  const locationResult   = locationField ? analyzeField(locationField, filteredSubs, true) : null
+
+  const primaryGender = genderResult?.kind === 'categorical' && genderResult.buckets.length
+    ? [...genderResult.buckets].sort((a, b) => b.value - a.value)[0].label
+    : null
+  const locationFocus = locationResult?.kind === 'categorical' && locationResult.buckets.length
+    ? [...locationResult.buckets].sort((a, b) => b.value - a.value).slice(0, 3).map(b => b.label).join(', ')
+    : null
+
+  function ProportionalBars({ buckets }: { buckets: { label: string; value: number }[] }) {
+    const max = Math.max(...buckets.map(b => b.value), 1)
+    return (
+      <div className="space-y-2">
+        {buckets.map(b => (
+          <div key={b.label}>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-700">{b.label}</span>
+              <span className="font-semibold text-gray-900">{b.value}</span>
+            </div>
+            <div className="h-3 w-full bg-gray-100 rounded-sm">
+              <div className="h-full rounded-sm" style={{ width: `${(b.value / max) * 100}%`, background: PRIMARY }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white text-black print:bg-white print:text-black">
@@ -64,7 +117,75 @@ export default function ReportView({ form, submissions, narrative }: { form: For
           </div>
         )}
 
-        {filteredFields.map((field: any, fieldIdx) => {
+        {demographicFields.length > 0 && (
+          <div className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Participant Profile</h2>
+            <p className="text-gray-600 mb-6">The participant pool represents a diverse range of occupations and backgrounds, ensuring the feedback is representative of the target market.</p>
+
+            <table className="text-sm mb-8">
+              <tbody>
+                <tr className="border-b border-gray-200">
+                  <td className="py-2 pr-10 font-semibold text-gray-900">Total Responses</td>
+                  <td className="py-2 text-gray-700">{filteredSubs.length}</td>
+                </tr>
+                {primaryGender && (
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-10 font-semibold text-gray-900">Primary Gender</td>
+                    <td className="py-2 text-gray-700">{primaryGender}</td>
+                  </tr>
+                )}
+                {locationFocus && (
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-10 font-semibold text-gray-900">Location Focus</td>
+                    <td className="py-2 text-gray-700">{locationFocus}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {genderResult?.kind === 'categorical' && genderResult.buckets.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-3">Gender Distribution</h3>
+                <div className="grid grid-cols-3 gap-8">
+                  <div className="col-span-2">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <RechartsPieChart>
+                        <Pie data={genderResult.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }}>
+                          {genderResult.buckets.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${value} responses`} />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="col-span-1 space-y-2">
+                    {genderResult.buckets.map(b => (
+                      <div key={b.label} className="flex justify-between text-sm">
+                        <span className="text-gray-700">{b.label}</span>
+                        <span className="font-semibold">{b.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {occupationResult?.kind === 'categorical' && occupationResult.buckets.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-3">Occupation Distribution</h3>
+                <ProportionalBars buckets={occupationResult.buckets} />
+              </div>
+            )}
+
+            {locationResult?.kind === 'categorical' && locationResult.buckets.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">Residence Distribution</h3>
+                <ProportionalBars buckets={locationResult.buckets} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {mainFields.map((field: any, fieldIdx) => {
           if (field.section === 'SECTION_HEADER') {
             return (
               <div key={field.id} className="w-full p-12 bg-red-50 print:bg-red-50 page-break-avoid print:page-break-before-always">
@@ -231,6 +352,13 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                       <span className="font-semibold">{b.value}</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {result.kind === 'matrix' && (
+                <div className="mt-6">
+                  <p className="text-xs text-gray-500 mb-3">Average score per row, out of {result.scaleMax}</p>
+                  <ProportionalBars buckets={result.rows} />
                 </div>
               )}
             </div>
