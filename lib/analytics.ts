@@ -7,6 +7,19 @@ export function isPrivateField(label: string): boolean {
   return privatePatterns.test(label)
 }
 
+// Ratings are ordinal (1 reads as "worse" than 5), so an alternating
+// red/silver categorical palette reads as noise — a light-to-dark ramp
+// through the brand red scale reads naturally as low→high intensity
+// instead. Sampled evenly across the tint scale so it works for any
+// rating range, not just 1-5.
+const RATING_TINT_SCALE = ['#fde7e7', '#fbcfcf', '#f7aaaa', '#f07878', '#ED1C24', '#d41820', '#b01319', '#920e15', '#7a0b11']
+export function ratingGradient(steps: number): string[] {
+  if (steps <= 1) return [RATING_TINT_SCALE[Math.floor(RATING_TINT_SCALE.length / 2)]]
+  return Array.from({ length: steps }, (_, i) =>
+    RATING_TINT_SCALE[Math.round((i * (RATING_TINT_SCALE.length - 1)) / (steps - 1))]
+  )
+}
+
 export type CategoricalResult = { kind: 'categorical'; answered: number; unanswered: number; buckets: Bucket[] }
 export type MultiResult      = { kind: 'multi';        respondents: number; totalSelections: number; buckets: Bucket[] }
 export type BooleanResult    = { kind: 'boolean';      yes: number; no: number; unanswered: number }
@@ -14,7 +27,8 @@ export type NumericResult    = { kind: 'numeric';      answered: number; min: nu
 export type DateResult       = { kind: 'date';         answered: number; unanswered: number; buckets: Bucket[] }
 export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[]; allAnswers?: string[] }
 export type MatrixResult     = { kind: 'matrix';       rows: Bucket[]; answered: number; scaleMax: number }
-export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult | MatrixResult
+export type RatingResult     = { kind: 'rating';       answered: number; unanswered: number; avg: number; min: number; max: number; buckets: Bucket[] }
+export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult | MatrixResult | RatingResult
 
 export type RadarAxis = { label: string; avg: number; min: number; max: number; answered: number }
 
@@ -114,22 +128,24 @@ function analyzeText(field: FormField, subs: Submission[], full: boolean = false
   return { kind: 'text', answered: answers.length, total: subs.length, topAnswers, samples: answers.slice(0, 5), allAnswers: full ? answers : undefined }
 }
 
-function analyzeRating(field: FormField, subs: Submission[]): CategoricalResult {
+function analyzeRating(field: FormField, subs: Submission[]): RatingResult {
   const min = field.minValue ?? 1
   const max = field.maxValue ?? 5
-  const answers = answersFor(subs, field.label)
+  const nums = answersFor(subs, field.label).map(parseFloat).filter(v => !isNaN(v))
   // Every rating level gets a bucket even at zero responses, so the legend
   // is always complete instead of silently omitting untouched ratings.
   const counts = new Map<string, number>()
   for (let v = min; v <= max; v++) counts.set(`Rating ${v}`, 0)
-  answers.forEach(v => {
+  nums.forEach(v => {
     const label = `Rating ${v}`
     if (counts.has(label)) counts.set(label, (counts.get(label) ?? 0) + 1)
   })
   return {
-    kind: 'categorical',
-    answered: answers.length,
-    unanswered: subs.length - answers.length,
+    kind: 'rating',
+    answered: nums.length,
+    unanswered: subs.length - nums.length,
+    avg: nums.length ? nums.reduce((s, v) => s + v, 0) / nums.length : 0,
+    min, max,
     buckets: Array.from(counts.entries()).map(([label, value]) => ({ label, value })),
   }
 }
