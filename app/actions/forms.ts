@@ -769,7 +769,7 @@ function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string |
     }
     case 'matrix':
       if (!result.rows.length) return null
-      return `${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.label}: ${r.value}`).join(', ')}`
+      return `${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.row}: ${r.avg}`).join(', ')}`
     case 'rating':
       if (!result.answered) return null
       return `${field.label} (rating out of ${result.max}): average ${result.avg.toFixed(1)}, distribution — ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`

@@ -418,7 +418,36 @@ export default function ReportView({ form, submissions, narrative }: { form: For
               {result.kind === 'matrix' && (
                 <div className="mt-6">
                   <p className="text-xs text-gray-500 mb-3">Average score per row, out of {result.scaleMax}</p>
-                  <ProportionalBars buckets={result.rows} />
+                  <ProportionalBars buckets={result.rows.map(r => ({ label: r.row, value: r.avg }))} />
+                  <div className="mt-6 grid grid-cols-2 gap-6">
+                    {result.rows.map(r => {
+                      const rowColors = ratingGradient(r.distribution.length)
+                      return (
+                        <div key={r.row} className="border border-gray-200 rounded-lg p-4 page-break-avoid">
+                          <p className="text-sm font-semibold text-gray-900 mb-1">{r.row}</p>
+                          <p className="text-xs text-gray-500 mb-3">Average {r.avg} / {result.scaleMax}</p>
+                          <div className="flex items-center gap-3">
+                            <ResponsiveContainer width={110} height={110}>
+                              <RechartsPieChart>
+                                <Pie data={r.distribution} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={50}>
+                                  {r.distribution.map((_, i) => <Cell key={i} fill={rowColors[i]} />)}
+                                </Pie>
+                              </RechartsPieChart>
+                            </ResponsiveContainer>
+                            <div className="flex-1 space-y-1">
+                              {r.distribution.map((d, i) => (
+                                <div key={d.label} className="flex items-center gap-1.5 text-xs">
+                                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: rowColors[i] }} />
+                                  <span className="text-gray-600 flex-1">{d.label}★</span>
+                                  <span className="font-semibold text-gray-900">{d.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 
