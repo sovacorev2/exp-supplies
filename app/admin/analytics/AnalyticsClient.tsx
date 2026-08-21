@@ -37,6 +37,7 @@ export default function AnalyticsClient({
   const [preparingReport, setPreparingReport] = useState(false)
   const [preparingMessage, setPreparingMessage] = useState('Preparing report…')
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
   const [includeAiInsights, setIncludeAiInsights] = useState(false)
   const [narrative, setNarrative] = useState<ReportNarrative | null>(null)
@@ -159,6 +160,7 @@ export default function AnalyticsClient({
     if (!selectedForm) return
     setExportMenu(false)
     setExportingPdf(true)
+    setPdfProgress(null)
     try {
       await prepareNarrative()
       const node = await ensureReportRendered()
@@ -166,12 +168,13 @@ export default function AnalyticsClient({
       // own root — that root's direct children are the actual
       // cover/question/footer blocks getBlocks() paginates on.
       const reportRoot = (node.firstElementChild as HTMLElement) ?? node
-      await exportAnalyticsPDF(reportRoot, selectedForm.name)
+      await exportAnalyticsPDF(reportRoot, selectedForm.name, (done, total) => setPdfProgress({ done, total }))
     } catch (err) {
       console.error('[analytics] Error exporting PDF:', err)
       alert('Failed to export PDF')
     } finally {
       setExportingPdf(false)
+      setPdfProgress(null)
       setShowReport(false)
     }
   }
@@ -377,7 +380,7 @@ export default function AnalyticsClient({
                   >
                     <FileDown size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
                     <span>
-                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">{exportingPdf ? 'Preparing PDF…' : 'Download PDF'}</span>
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">Download PDF</span>
                       <span className="block text-xs text-gray-400">Same report as a one-click PDF download</span>
                     </span>
                   </button>
@@ -530,6 +533,31 @@ export default function AnalyticsClient({
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl px-6 py-4 flex items-center gap-3">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-brand-500" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{preparingMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* The export menu closes the instant Download PDF is clicked, so
+          the "Preparing PDF…" label inside it is invisible for the whole
+          export — this overlay is the only feedback the admin actually
+          sees while html2canvas works through each chart. */}
+      {exportingPdf && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl px-6 py-4 w-72">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-brand-500 flex-shrink-0" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {pdfProgress ? `Rendering charts… ${pdfProgress.done}/${pdfProgress.total}` : 'Preparing PDF…'}
+              </span>
+            </div>
+            {pdfProgress && (
+              <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 transition-all duration-200"
+                  style={{ width: `${Math.round((pdfProgress.done / pdfProgress.total) * 100)}%` }}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
