@@ -7,7 +7,8 @@ import {
 } from 'recharts'
 import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
 import { ratingGradient } from '@/lib/analytics'
-import type { FormField } from '@/app/actions/forms'
+import type { FormField, FieldValueMerge } from '@/app/actions/forms'
+import { mergeFieldValues, unmergeFieldValue } from '@/app/actions/forms'
 
 // ── colour palette — built from the Exp brand red/silver scale (see
 // tailwind.config.js) so charts stay on-brand instead of an arbitrary
@@ -191,12 +192,29 @@ export function ChartCard({ title, meta, children, tableRows, tableValueHeader }
 }
 
 // ── Per-field card composer ──────────────────────────────────────────────────
-export function FieldCard({ field, result }: { field: FormField; result: FieldResult }) {
+export function FieldCard({ field, result, formId, merges, onMergesChanged }: {
+  field: FormField; result: FieldResult
+  formId?: string; merges?: FieldValueMerge[]; onMergesChanged?: () => void
+}) {
   if (result.kind === 'categorical') {
     const meta = `${result.answered} answered${result.unanswered > 0 ? ` · ${result.unanswered} skipped` : ''}`
     if (!result.buckets.length) return <ChartCard title={field.label} meta={meta}><p className="text-sm text-gray-400 py-4 text-center">No answers yet</p></ChartCard>
     const chart = result.buckets.length <= 2 ? <BarList data={result.buckets} highlightMax /> : <DonutChart data={result.buckets} />
-    return <ChartCard title={field.label} meta={meta} tableRows={result.buckets}>{chart}</ChartCard>
+    const canMerge = formId && (field.type === 'text' || field.type === 'textarea')
+    return (
+      <ChartCard title={field.label} meta={meta} tableRows={result.buckets}>
+        {chart}
+        {canMerge && (
+          <MergeAnswersPanel
+            formId={formId!}
+            field={field}
+            buckets={result.buckets}
+            merges={merges ?? []}
+            onMergesChanged={onMergesChanged}
+          />
+        )}
+      </ChartCard>
+    )
   }
   if (result.kind === 'multi') {
     return (
@@ -334,5 +352,101 @@ function TextFieldCard({ field, result }: { field: FormField; result: TextResult
         </div>
       )}
     </>
+  )
+}
+
+// Free-text answers that are the same real answer worded differently
+// ("Sunton" / "Sunton Kasarani") can't be safely auto-merged by string
+// normalization alone — this lets an admin who actually knows the data
+// mark them as the same, once, rather than guessing with a heuristic or
+// an LLM call on every view.
+function MergeAnswersPanel({ formId, field, buckets, merges, onMergesChanged }: {
+  formId: string; field: FormField; buckets: Bucket[]; merges: FieldValueMerge[]; onMergesChanged?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [canonical, setCanonical] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const mergeableBuckets = buckets.filter(b => b.label !== 'Other')
+  const suggestedCanonical = [...selected]
+    .sort((a, b) => (buckets.find(x => x.label === b)?.value ?? 0) - (buckets.find(x => x.label === a)?.value ?? 0))[0] ?? ''
+
+  function toggle(label: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+  }
+
+  async function handleMerge() {
+    if (selected.size < 2) return
+    setSaving(true)
+    try {
+      await mergeFieldValues(formId, field.label, Array.from(selected), canonical.trim() || suggestedCanonical)
+      setSelected(new Set())
+      setCanonical('')
+      onMergesChanged?.()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleUnmerge(variantValue: string) {
+    await unmergeFieldValue(formId, field.label, variantValue)
+    onMergesChanged?.()
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+      <button onClick={() => setOpen(v => !v)} className="text-[12px] font-semibold text-gray-400 hover:text-brand-500 transition-colors">
+        {open ? 'Hide merge tool' : 'Merge similar answers'}
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {mergeableBuckets.map(b => (
+              <label key={b.label} className="flex items-center gap-2 text-[13px] text-gray-700 dark:text-gray-300 cursor-pointer">
+                <input type="checkbox" checked={selected.has(b.label)} onChange={() => toggle(b.label)} />
+                <span className="flex-1">{b.label}</span>
+                <span className="text-gray-400">{b.value}</span>
+              </label>
+            ))}
+          </div>
+          {selected.size >= 2 && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={canonical}
+                onChange={e => setCanonical(e.target.value)}
+                placeholder={`Merge into: ${suggestedCanonical}`}
+                className="flex-1 text-[13px] border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <button
+                onClick={handleMerge}
+                disabled={saving}
+                className="text-[12px] font-semibold px-3 py-1.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 flex-shrink-0"
+              >
+                {saving ? 'Merging…' : `Merge ${selected.size}`}
+              </button>
+            </div>
+          )}
+          {merges.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Active merges</p>
+              <div className="space-y-1">
+                {merges.map(m => (
+                  <div key={m.variantValue} className="flex items-center justify-between text-[12px] text-gray-600 dark:text-gray-300">
+                    <span>{m.variantValue} → {m.canonicalValue}</span>
+                    <button onClick={() => handleUnmerge(m.variantValue)} className="text-gray-400 hover:text-red-500 font-medium">Undo</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

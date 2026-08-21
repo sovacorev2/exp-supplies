@@ -1,14 +1,14 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives } from '@/lib/db/schema'
+import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives, fieldValueMerges } from '@/lib/db/schema'
 import { eq, desc, ne, and, or, gt } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 import { sendEmail } from '@/lib/email'
 import { callGemini } from '@/lib/ai'
-import { analyzeField, isPrivateField } from '@/lib/analytics'
+import { analyzeField, isPrivateField, applyFieldMerges } from '@/lib/analytics'
 
 const RATE_LIMIT_WINDOW_MINUTES = 15
 const RATE_LIMIT_MAX_ATTEMPTS = 5
@@ -661,14 +661,61 @@ export async function getAnalyticsData(token: string) {
     .from(submissions)
     .where(and(eq(submissions.form_id, record.form_id), ne(submissions.status, 'draft')))
 
+  const merges = await fetchMergesByField(record.form_id)
+  const parsedSubs = formSubmissions.map((s: any) => ({
+    ...s,
+    data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
+  }))
+
   return {
     form: formRows[0],
-    submissions: formSubmissions.map((s: any) => ({
-      ...s,
-      data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
-    })),
+    submissions: applyFieldMerges(parsedSubs, merges),
     expiresAt: record.expires_at,
   }
+}
+
+// ── Manual answer merging (free-text fields only) ─────────────────────
+
+export type FieldValueMerge = { variantValue: string; canonicalValue: string }
+
+async function fetchMergesByField(formId: string): Promise<Record<string, FieldValueMerge[]>> {
+  const rows = await db.select().from(fieldValueMerges).where(eq(fieldValueMerges.form_id, formId))
+  const byField: Record<string, FieldValueMerge[]> = {}
+  rows.forEach((r: any) => {
+    if (!byField[r.field_label]) byField[r.field_label] = []
+    byField[r.field_label].push({ variantValue: r.variant_value, canonicalValue: r.canonical_value })
+  })
+  return byField
+}
+
+export async function getFieldValueMerges(formId: string): Promise<Record<string, FieldValueMerge[]>> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+  return fetchMergesByField(formId)
+}
+
+export async function mergeFieldValues(formId: string, fieldLabel: string, variantValues: string[], canonicalValue: string): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+  const targets = variantValues.filter(v => v !== canonicalValue)
+  for (const variant of targets) {
+    await db.delete(fieldValueMerges).where(and(
+      eq(fieldValueMerges.form_id, formId),
+      eq(fieldValueMerges.field_label, fieldLabel),
+      eq(fieldValueMerges.variant_value, variant)
+    ))
+    await db.insert(fieldValueMerges).values({ form_id: formId, field_label: fieldLabel, variant_value: variant, canonical_value: canonicalValue })
+  }
+}
+
+export async function unmergeFieldValue(formId: string, fieldLabel: string, variantValue: string): Promise<void> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+  await db.delete(fieldValueMerges).where(and(
+    eq(fieldValueMerges.form_id, formId),
+    eq(fieldValueMerges.field_label, fieldLabel),
+    eq(fieldValueMerges.variant_value, variantValue)
+  ))
 }
 
 // ── Dashboard stats ────────────────────────────────────────────────────
@@ -827,10 +874,12 @@ export async function generateReportNarrative(
     .select()
     .from(submissions)
     .where(and(eq(submissions.form_id, formId), ne(submissions.status, 'draft')))
-  const subs: Submission[] = subRows.map((s: any) => ({
+  const parsedSubs: Submission[] = subRows.map((s: any) => ({
     ...s,
     data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
   }))
+  const merges = await fetchMergesByField(formId)
+  const subs = applyFieldMerges(parsedSubs, merges)
 
   const existing = await db.select().from(aiReportNarratives).where(eq(aiReportNarratives.form_id, formId)).limit(1)
   const cached = existing[0]

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText, ChevronDown, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
-import { generateReportNarrative } from '@/app/actions/forms'
-import { analyzeField, computeOverview, computeRatingRadar, exportCSV, formatAnswerPreview } from '@/lib/analytics'
+import type { Form, Submission, ReportNarrative, FieldValueMerge } from '@/app/actions/forms'
+import { generateReportNarrative, getFieldValueMerges } from '@/app/actions/forms'
+import { analyzeField, computeOverview, computeRatingRadar, exportCSV, formatAnswerPreview, applyFieldMerges } from '@/lib/analytics'
 import { exportAnalyticsPDF } from '@/lib/pdf'
 import {
   StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
@@ -42,6 +42,7 @@ export default function AnalyticsClient({
   const [includeAiInsights, setIncludeAiInsights] = useState(false)
   const [narrative, setNarrative] = useState<ReportNarrative | null>(null)
   const [narrativeNotice, setNarrativeNotice] = useState<string | null>(null)
+  const [merges, setMerges] = useState<Record<string, FieldValueMerge[]>>({})
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -54,6 +55,17 @@ export default function AnalyticsClient({
 
   const selectedForm = formId ? allForms.find(f => f.id === formId) : null
   const overview     = useMemo(() => computeOverview(filtered), [filtered])
+
+  // Admin-created "these are the same answer" mappings (e.g. "Sunton" /
+  // "Sunton Kasarani") — fetched per selected form and applied once here
+  // so the dashboard, the printed report, and CSV export all stay
+  // consistent from a single source of truth.
+  async function refetchMerges() {
+    if (!selectedForm) { setMerges({}); return }
+    setMerges(await getFieldValueMerges(selectedForm.id))
+  }
+  useEffect(() => { refetchMerges() }, [selectedForm?.id])
+  const mergedSubs = useMemo(() => applyFieldMerges(filtered, merges), [filtered, merges])
 
   // Independent of the search box — the AI eligibility threshold should
   // reflect the form's real response count, not whatever the admin
@@ -260,7 +272,7 @@ export default function AnalyticsClient({
 
   // ── Per-form analytics ───────────────────────────────────────────────────
   function FormAnalyticsView({ form }: { form: Form }) {
-    const formSubs  = filtered.filter(s => s.form_id === form.id)
+    const formSubs  = mergedSubs.filter(s => s.form_id === form.id)
     const radarAxes = computeRatingRadar(form.fields, formSubs)
 
     if (!formSubs.length) {
@@ -308,6 +320,9 @@ export default function AnalyticsClient({
                 key={field.id}
                 field={field}
                 result={analyzeField(field, formSubs, true)}
+                formId={form.id}
+                merges={merges[field.label] ?? []}
+                onMergesChanged={refetchMerges}
               />
             )
           })}
@@ -416,7 +431,7 @@ export default function AnalyticsClient({
                     </span>
                   </label>
                   <button
-                    onClick={() => { exportCSV(filtered, selectedForm); setExportMenu(false) }}
+                    onClick={() => { exportCSV(mergedSubs, selectedForm); setExportMenu(false) }}
                     className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     <Download size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
@@ -533,7 +548,7 @@ export default function AnalyticsClient({
           width and paint before window.print()/html2canvas run. */}
       {showReport && selectedForm && typeof document !== 'undefined' && createPortal(
         <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
-          <ReportView form={selectedForm} submissions={filtered} narrative={narrative ?? undefined} />
+          <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} />
         </div>,
         document.body
       )}

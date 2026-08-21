@@ -143,3 +143,14 @@ export const aiReportNarratives = pgTable('ai_report_narratives', {
   narrative: jsonb('narrative').notNull(),
   generated_at: timestamp('generated_at').notNull().defaultNow(),
 })
+
+export const fieldValueMerges = pgTable('field_value_merges', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  field_label: text('field_label').notNull(),
+  variant_value: text('variant_value').notNull(),
+  canonical_value: text('canonical_value').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+})

@@ -1,10 +1,36 @@
-import type { FormField, Submission } from '@/app/actions/forms'
+import type { FormField, Submission, FieldValueMerge } from '@/app/actions/forms'
 
 export type Bucket = { label: string; value: number }
 
 export function isPrivateField(label: string): boolean {
   const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password|why.*choose|why.*select/i
   return privatePatterns.test(label)
+}
+
+// Admin-created mappings for free-text answers that are the same real
+// answer spelled differently in a way normalization can't safely guess
+// ("Sunton" / "Sunton Kasarani" — genuinely different strings, not just
+// casing/whitespace). Applied before analysis so every consumer (charts,
+// printed report, CSV, the LLM narrative) sees the same canonicalized
+// data — analyzeField/exportCSV themselves never need to know merges
+// exist at all.
+export function applyFieldMerges(subs: Submission[], mergesByField: Record<string, FieldValueMerge[]>): Submission[] {
+  const fieldsWithMerges = Object.keys(mergesByField).filter(k => mergesByField[k]?.length)
+  if (!fieldsWithMerges.length) return subs
+  return subs.map(s => {
+    let data = s.data as Record<string, string>
+    let changed = false
+    for (const fieldLabel of fieldsWithMerges) {
+      const v = data[fieldLabel]
+      if (typeof v !== 'string') continue
+      const hit = mergesByField[fieldLabel].find(m => m.variantValue === v.trim())
+      if (hit) {
+        if (!changed) { data = { ...data }; changed = true }
+        data[fieldLabel] = hit.canonicalValue
+      }
+    }
+    return changed ? { ...s, data } : s
+  })
 }
 
 // Ratings are ordinal (1 reads as "worse" than 5), so an alternating
