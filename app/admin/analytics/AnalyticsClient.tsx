@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText, ChevronDown } from 'lucide-react'
+import { BarChart2, List, Download, FileDown, Search, RefreshCw, Share2, Check, Copy, FileText, ChevronDown, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import type { Form, Submission } from '@/app/actions/forms'
+import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
+import { generateReportNarrative } from '@/app/actions/forms'
 import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
 import { exportAnalyticsPDF } from '@/lib/pdf'
 import {
@@ -18,9 +19,11 @@ const ReportView = dynamic(() => import('@/components/charts/ReportView'), { ssr
 export default function AnalyticsClient({
   allForms,
   allSubmissions,
+  aiInsightsAvailable,
 }: {
   allForms: Form[]
   allSubmissions: Submission[]
+  aiInsightsAvailable: boolean
 }) {
   const router    = useRouter()
   const [view,    setView]    = useState<'list' | 'analytics'>('analytics')
@@ -32,8 +35,12 @@ export default function AnalyticsClient({
   const [copied, setCopied] = useState(false)
   const [showReport, setShowReport] = useState(false)
   const [preparingReport, setPreparingReport] = useState(false)
+  const [preparingMessage, setPreparingMessage] = useState('Preparing report…')
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportMenu, setExportMenu] = useState(false)
+  const [includeAiInsights, setIncludeAiInsights] = useState(false)
+  const [narrative, setNarrative] = useState<ReportNarrative | null>(null)
+  const [narrativeNotice, setNarrativeNotice] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -46,6 +53,18 @@ export default function AnalyticsClient({
 
   const selectedForm = formId ? allForms.find(f => f.id === formId) : null
   const overview     = useMemo(() => computeOverview(filtered), [filtered])
+
+  // Independent of the search box — the AI eligibility threshold should
+  // reflect the form's real response count, not whatever the admin
+  // happens to be filtering the list by right now.
+  const selectedFormSubCount = selectedForm ? allSubmissions.filter(s => s.form_id === selectedForm.id).length : 0
+  const aiInsightsDisabledReason = !aiInsightsAvailable
+    ? 'Smart Insights are not configured'
+    : !selectedForm
+      ? 'Pick a form above to enable Smart Insights'
+      : selectedFormSubCount < 3
+        ? 'Needs at least 3 responses for Smart Insights'
+        : null
 
   async function generateAnalyticsLink() {
     if (!selectedForm) return
@@ -97,11 +116,31 @@ export default function AnalyticsClient({
     })
   }
 
+  // Fetches (or reuses the cached) AI narrative when the admin opted in.
+  // Failures here never block the report — they fall back to the plain
+  // chart report with a brief notice, since Print/Download must keep
+  // working exactly as before for anyone who didn't ask for AI insights.
+  async function prepareNarrative() {
+    if (!includeAiInsights || !selectedForm) { setNarrative(null); return }
+    setPreparingMessage('Generating insights…')
+    const result = await generateReportNarrative(selectedForm.id)
+    if (result.ok) {
+      setNarrative(result.data)
+    } else {
+      console.error('[analytics] Smart Insights failed:', result.error)
+      setNarrative(null)
+      setNarrativeNotice('Smart Insights unavailable — showing the standard report.')
+      setTimeout(() => setNarrativeNotice(null), 5000)
+    }
+    setPreparingMessage('Preparing report…')
+  }
+
   async function handlePrintReport() {
     if (!selectedForm) return
     setExportMenu(false)
     setPreparingReport(true)
     try {
+      await prepareNarrative()
       await ensureReportRendered()
     } catch (err) {
       console.error('[analytics] Error preparing report:', err)
@@ -121,6 +160,7 @@ export default function AnalyticsClient({
     setExportMenu(false)
     setExportingPdf(true)
     try {
+      await prepareNarrative()
       const node = await ensureReportRendered()
       // #report-view is the portal mount; its one child is ReportView's
       // own root — that root's direct children are the actual
@@ -341,6 +381,27 @@ export default function AnalyticsClient({
                       <span className="block text-xs text-gray-400">Same report as a one-click PDF download</span>
                     </span>
                   </button>
+                  <label
+                    className={`w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left border-t border-gray-100 dark:border-gray-700 mt-1 pt-2.5 ${
+                      aiInsightsDisabledReason ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
+                    } transition-colors`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={includeAiInsights}
+                      disabled={!!aiInsightsDisabledReason}
+                      onChange={e => setIncludeAiInsights(e.target.checked)}
+                      className="mt-1 flex-shrink-0"
+                    />
+                    <span>
+                      <span className="flex items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
+                        <Sparkles size={14} className="text-brand-500 flex-shrink-0" /> Include Smart Insights
+                      </span>
+                      <span className="block text-xs text-gray-400">
+                        {aiInsightsDisabledReason || 'Adds an executive summary, key insights and recommendations'}
+                      </span>
+                    </span>
+                  </label>
                   <button
                     onClick={() => { exportCSV(filtered, selectedForm); setExportMenu(false) }}
                     className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -459,7 +520,7 @@ export default function AnalyticsClient({
           width and paint before window.print()/html2canvas run. */}
       {showReport && selectedForm && typeof document !== 'undefined' && createPortal(
         <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
-          <ReportView form={selectedForm} submissions={filtered} />
+          <ReportView form={selectedForm} submissions={filtered} narrative={narrative ?? undefined} />
         </div>,
         document.body
       )}
@@ -468,8 +529,14 @@ export default function AnalyticsClient({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl px-6 py-4 flex items-center gap-3">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-brand-500" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Preparing report…</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{preparingMessage}</span>
           </div>
+        </div>
+      )}
+
+      {narrativeNotice && (
+        <div className="fixed bottom-4 right-4 z-[70] bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800 rounded-lg shadow-lg px-4 py-3 max-w-sm text-sm text-gray-700 dark:text-gray-200">
+          {narrativeNotice}
         </div>
       )}
     </div>

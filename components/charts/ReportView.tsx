@@ -1,12 +1,17 @@
 'use client'
 
-import type { Form, Submission } from '@/app/actions/forms'
+import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
 import { analyzeField, isPrivateField } from '@/lib/analytics'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
-const COLORS = ['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316']
+// Built from the Exp brand red/silver scale (tailwind.config.js) rather
+// than an arbitrary rainbow — alternates dark/light so adjacent chart
+// segments stay distinguishable while the report stays strictly on-brand.
+const PRIMARY = '#ED1C24' // brand-500, Pantone 485 C
+const SILVER  = '#6D6E71' // silver-500, Pantone 424 C
+const COLORS  = ['#ED1C24', '#6D6E71', '#b01319', '#d0d0d2', '#f7aaaa', '#575859', '#920e15', '#e7e7e8']
 
-export default function ReportView({ form, submissions }: { form: Form; submissions: Submission[] }) {
+export default function ReportView({ form, submissions, narrative }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative }) {
   const filteredFields = form.fields?.filter((f: any) => !isPrivateField(f.label)) ?? []
   const filteredSubs = submissions.map(s => ({
     ...s,
@@ -52,6 +57,13 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
 
       {/* Page 2+: Content Pages */}
       <div className="space-y-0" data-pdf-flatten>
+        {narrative && (
+          <div className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Executive Summary</h2>
+            <p className="text-gray-700 leading-relaxed">{narrative.summary}</p>
+          </div>
+        )}
+
         {filteredFields.map((field: any, fieldIdx) => {
           if (field.section === 'SECTION_HEADER') {
             return (
@@ -136,7 +148,7 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
                         <XAxis dataKey="label" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="value" fill="#dc2626" />
+                        <Bar dataKey="value" fill={PRIMARY} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -180,21 +192,21 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
                           outerRadius={80}
                           label={{ fontSize: 12 }}
                         >
-                          <Cell fill="#16a34a" />
-                          <Cell fill="#dc2626" />
+                          <Cell fill={PRIMARY} />
+                          <Cell fill={SILVER} />
                         </Pie>
                         <Tooltip formatter={(value) => `${value} responses`} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="col-span-1 space-y-2">
-                    <div className="bg-green-50 p-3 rounded border border-green-200">
-                      <p className="text-xs text-green-700">Yes</p>
-                      <p className="text-2xl font-bold text-green-900">{result.yes}</p>
+                    <div className="bg-brand-50 p-3 rounded border border-brand-200">
+                      <p className="text-xs text-brand-700">Yes</p>
+                      <p className="text-2xl font-bold text-brand-900">{result.yes}</p>
                     </div>
-                    <div className="bg-red-50 p-3 rounded border border-red-200">
-                      <p className="text-xs text-red-700">No</p>
-                      <p className="text-2xl font-bold text-red-900">{result.no}</p>
+                    <div className="bg-silver-50 p-3 rounded border border-silver-200">
+                      <p className="text-xs text-silver-700">No</p>
+                      <p className="text-2xl font-bold text-silver-900">{result.no}</p>
                     </div>
                   </div>
                 </div>
@@ -224,6 +236,43 @@ export default function ReportView({ form, submissions }: { form: Form; submissi
             </div>
           )
         })}
+
+        {narrative && (
+          <div className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Key Insights</h2>
+            <ul className="space-y-2 mb-8">
+              {narrative.keyInsights.map((point, i) => (
+                <li key={i} className="flex gap-3 text-gray-700">
+                  <span className="text-red-600 font-bold flex-shrink-0">•</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+
+            {narrative.notableQuotes.length > 0 && (
+              <>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">What Respondents Said</h3>
+                <div className="space-y-3 mb-8">
+                  {narrative.notableQuotes.map((quote, i) => (
+                    <div key={i} className="p-3 bg-gray-50 border-l-4 border-red-600 text-sm rounded">
+                      <p className="text-gray-900 m-0 italic">&ldquo;{quote}&rdquo;</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Recommendations</h3>
+            <ol className="space-y-2 mb-8 list-decimal list-inside">
+              {narrative.recommendations.map((rec, i) => (
+                <li key={i} className="text-gray-700">{rec}</li>
+              ))}
+            </ol>
+
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Conclusion</h3>
+            <p className="text-gray-700 leading-relaxed">{narrative.conclusion}</p>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

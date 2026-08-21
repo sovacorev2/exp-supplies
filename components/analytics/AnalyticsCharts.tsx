@@ -8,9 +8,13 @@ import {
 import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
 import type { FormField } from '@/app/actions/forms'
 
-// ── colour palette (matches reference design) ──────────────────────────────
-const SERIES = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948']
-const OTHER  = '#b9b9bb'
+// ── colour palette — built from the Exp brand red/silver scale (see
+// tailwind.config.js) so charts stay on-brand instead of an arbitrary
+// rainbow, while still alternating red/grey and dark/light to keep
+// adjacent segments distinguishable at a glance.
+const PRIMARY = '#ED1C24' // brand-500, Pantone 485 C
+const SERIES  = ['#ED1C24','#6D6E71','#b01319','#d0d0d2','#f7aaaa','#575859','#920e15','#e7e7e8']
+const OTHER   = '#b9b9bb' // silver-400
 
 function color(idx: number, label: string) {
   return label === 'Other' ? OTHER : SERIES[idx % SERIES.length]
@@ -95,7 +99,7 @@ export function HistogramChart({ data }: { data: Bucket[] }) {
         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
         <Tooltip contentStyle={{ background: 'var(--tooltip-bg,#1f2937)', border: 'none', borderRadius: 8, fontSize: 12 }} />
         <Bar dataKey="value" radius={[4,4,0,0]}>
-          {data.map((d, i) => <Cell key={i} fill={SERIES[0]} />)}
+          {data.map((d, i) => <Cell key={i} fill={PRIMARY} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
