@@ -238,9 +238,18 @@ export function FieldCard({ field, result }: { field: FormField; result: FieldRe
   }
   if (result.kind === 'matrix') {
     if (!result.answered) return <ChartCard title={field.label} meta="No answers yet"><p className="text-sm text-gray-400 py-4 text-center">No answers yet</p></ChartCard>
+    const avgBuckets = result.rows.map(r => ({ label: r.row, value: r.avg }))
     return (
-      <ChartCard title={field.label} meta={`${result.answered} answered · average out of ${result.scaleMax}`} tableRows={result.rows} tableValueHeader="Average">
-        <BarList data={result.rows} highlightMax />
+      <ChartCard title={field.label} meta={`${result.answered} answered · average out of ${result.scaleMax}`} tableRows={avgBuckets} tableValueHeader="Average">
+        <BarList data={avgBuckets} highlightMax />
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {result.rows.map(r => (
+            <div key={r.row} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-2">{r.row} <span className="font-normal text-gray-400">— avg {r.avg}</span></p>
+              <DonutChart data={r.distribution} colors={ratingGradient(r.distribution.length)} />
+            </div>
+          ))}
+        </div>
       </ChartCard>
     )
   }

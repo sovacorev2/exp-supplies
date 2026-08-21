@@ -26,7 +26,8 @@ export type BooleanResult    = { kind: 'boolean';      yes: number; no: number; 
 export type NumericResult    = { kind: 'numeric';      answered: number; min: number; max: number; avg: number; median: number; histogram: Bucket[] }
 export type DateResult       = { kind: 'date';         answered: number; unanswered: number; buckets: Bucket[] }
 export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[]; allAnswers?: string[] }
-export type MatrixResult     = { kind: 'matrix';       rows: Bucket[]; answered: number; scaleMax: number }
+export type MatrixRow        = { row: string; avg: number; distribution: Bucket[] }
+export type MatrixResult     = { kind: 'matrix';       rows: MatrixRow[]; answered: number; scaleMin: number; scaleMax: number }
 export type RatingResult     = { kind: 'rating';       answered: number; unanswered: number; avg: number; min: number; max: number; buckets: Bucket[] }
 export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult | MatrixResult | RatingResult
 
@@ -55,10 +56,38 @@ function foldToOther(counts: Map<string, number>, cap: number, full: boolean = f
   return [...head.map(([label, value]) => ({ label, value })), { label: 'Other', value: other }]
 }
 
+function normalizeKey(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, '')
+}
+
+// Groups near-duplicate free-text answers that only differ by casing or
+// spacing ("Clay City" / "Clay city" / "ClayCity") into one bucket instead
+// of fragmenting into several near-identical slices — displayed under
+// whichever exact spelling respondents used most often. A select field's
+// options are already exact strings from a dropdown, so this is a no-op
+// for those; it only matters for the free-text-as-categorical fallback.
+function countNormalized(answers: string[]): Map<string, number> {
+  const raw = new Map<string, number>()
+  answers.forEach(v => { const t = v.trim(); if (t) raw.set(t, (raw.get(t) ?? 0) + 1) })
+
+  const byKey = new Map<string, { label: string; labelCount: number; total: number }>()
+  raw.forEach((count, label) => {
+    const key = normalizeKey(label)
+    const g = byKey.get(key)
+    if (!g) byKey.set(key, { label, labelCount: count, total: count })
+    else {
+      g.total += count
+      if (count > g.labelCount) { g.label = label; g.labelCount = count }
+    }
+  })
+  const result = new Map<string, number>()
+  byKey.forEach(g => result.set(g.label, g.total))
+  return result
+}
+
 function analyzeSelect(field: FormField, subs: Submission[], full: boolean = false): CategoricalResult {
   const answers = answersFor(subs, field.label)
-  const counts  = new Map<string, number>()
-  answers.forEach(v => counts.set(v, (counts.get(v) ?? 0) + 1))
+  const counts  = countNormalized(answers)
   return { kind: 'categorical', answered: answers.length, unanswered: subs.length - answers.length, buckets: foldToOther(counts, CATEGORY_CAP, full) }
 }
 
@@ -152,22 +181,34 @@ function analyzeRating(field: FormField, subs: Submission[]): RatingResult {
 
 function analyzeMatrix(field: FormField, subs: Submission[]): MatrixResult {
   const rowLabels = (field.options ?? []).map(o => typeof o === 'string' ? o : o.label)
-  const sums = new Map<string, { total: number; count: number }>(rowLabels.map(r => [r, { total: 0, count: 0 }]))
+  const min = field.minValue ?? 1
+  const max = field.maxValue ?? 5
+  const perRow = new Map<string, { total: number; count: number; dist: Map<number, number> }>(
+    rowLabels.map(r => [r, { total: 0, count: 0, dist: new Map(Array.from({ length: max - min + 1 }, (_, i) => [min + i, 0])) }])
+  )
   let answered = 0
   answersFor(subs, field.label).forEach(raw => {
     answered++
     raw.split('||').filter(Boolean).forEach(pair => {
       const [row, scoreStr] = pair.split(':')
       const score = parseFloat(scoreStr)
-      const entry = sums.get(row)
-      if (entry && !isNaN(score)) { entry.total += score; entry.count++ }
+      const entry = perRow.get(row)
+      if (entry && !isNaN(score)) {
+        entry.total += score
+        entry.count++
+        entry.dist.set(score, (entry.dist.get(score) ?? 0) + 1)
+      }
     })
   })
-  const rows = rowLabels.map(row => {
-    const e = sums.get(row)!
-    return { label: row, value: e.count ? Math.round((e.total / e.count) * 10) / 10 : 0 }
+  const rows: MatrixRow[] = rowLabels.map(row => {
+    const e = perRow.get(row)!
+    return {
+      row,
+      avg: e.count ? Math.round((e.total / e.count) * 10) / 10 : 0,
+      distribution: Array.from(e.dist.entries()).map(([v, c]) => ({ label: `${v}`, value: c })),
+    }
   })
-  return { kind: 'matrix', rows, answered, scaleMax: field.maxValue ?? 5 }
+  return { kind: 'matrix', rows, answered, scaleMin: min, scaleMax: max }
 }
 
 // Free-text fields like "Occupation" or "Residence" aren't a dropdown, but
