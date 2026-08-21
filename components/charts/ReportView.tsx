@@ -1,7 +1,7 @@
 'use client'
 
 import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
-import { analyzeField, isPrivateField } from '@/lib/analytics'
+import { analyzeField, isPrivateField, ratingGradient } from '@/lib/analytics'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 // Built from the Exp brand red/silver scale (tailwind.config.js) rather
@@ -53,6 +53,22 @@ export default function ReportView({ form, submissions, narrative }: { form: For
   const locationFocus = locationResult?.kind === 'categorical' && locationResult.buckets.length
     ? [...locationResult.buckets].sort((a, b) => b.value - a.value).slice(0, 3).map(b => b.label).join(', ')
     : null
+
+  function findInsight(fieldLabel?: string) {
+    return fieldLabel ? narrative?.fieldInsights?.find(fi => fi.fieldLabel === fieldLabel) : undefined
+  }
+
+  function AnalystTake({ insight }: { insight?: string }) {
+    if (!insight) return null
+    return (
+      <div className="mt-4 flex gap-3 items-start bg-brand-50 border border-brand-100 rounded-lg p-4">
+        <span className="text-brand-600 font-bold text-lg leading-none flex-shrink-0">✦</span>
+        <p className="text-sm text-gray-800 m-0">
+          <span className="font-semibold text-brand-700">Analyst take: </span>{insight}
+        </p>
+      </div>
+    )
+  }
 
   function ProportionalBars({ buckets }: { buckets: { label: string; value: number }[] }) {
     const max = Math.max(...buckets.map(b => b.value), 1)
@@ -166,6 +182,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                     ))}
                   </div>
                 </div>
+                <AnalystTake insight={findInsight(genderField?.label)?.insight} />
               </div>
             )}
 
@@ -173,6 +190,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
               <div className="mb-8">
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Occupation Distribution</h3>
                 <ProportionalBars buckets={occupationResult.buckets} />
+                <AnalystTake insight={findInsight(occupationField?.label)?.insight} />
               </div>
             )}
 
@@ -180,6 +198,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Residence Distribution</h3>
                 <ProportionalBars buckets={locationResult.buckets} />
+                <AnalystTake insight={findInsight(locationField?.label)?.insight} />
               </div>
             )}
           </div>
@@ -197,6 +216,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
           const result = analyzeField(field, filteredSubs, true)
           const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
           const responseRate = Math.round((answered / filteredSubs.length) * 100)
+          const fieldInsight = findInsight(field.label)
 
           return (
             <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
@@ -245,6 +265,46 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                     </div>
                   </div>
                 </div>
+              )}
+
+              {result.kind === 'rating' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4 mb-6 max-w-sm">
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="text-xs text-gray-600">Average Rating</p>
+                      <p className="text-2xl font-bold text-gray-900">{result.avg.toFixed(1)} / {result.max}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="text-xs text-gray-600">Responses</p>
+                      <p className="text-2xl font-bold text-gray-900">{result.answered}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-8">
+                    <div className="col-span-2">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <RechartsPieChart>
+                          <Pie data={result.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }}>
+                            {result.buckets.map((_, i) => (
+                              <Cell key={`cell-${i}`} fill={ratingGradient(result.buckets.length)[i]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => `${value} responses`} />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="col-span-1">
+                      <div className="space-y-2">
+                        {result.buckets.map((b, i) => (
+                          <div key={b.label} className="flex items-center gap-2 text-sm">
+                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: ratingGradient(result.buckets.length)[i] }} />
+                            <span className="text-gray-700 flex-1">{b.label}</span>
+                            <span className="font-semibold">{b.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               {result.kind === 'text' && (
@@ -361,6 +421,8 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                   <ProportionalBars buckets={result.rows} />
                 </div>
               )}
+
+              <AnalystTake insight={fieldInsight?.insight} />
             </div>
           )
         })}

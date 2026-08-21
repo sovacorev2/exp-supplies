@@ -715,6 +715,7 @@ export type ReportNarrative = {
   notableQuotes: string[]
   recommendations: string[]
   conclusion: string
+  fieldInsights: { fieldLabel: string; insight: string }[]
 }
 
 const NARRATIVE_SCHEMA = {
@@ -725,8 +726,22 @@ const NARRATIVE_SCHEMA = {
     notableQuotes: { type: 'array', items: { type: 'string' } },
     recommendations: { type: 'array', items: { type: 'string' } },
     conclusion: { type: 'string' },
+    // Per-question commentary rendered directly under each chart in the
+    // report — this is what actually makes the analysis feel authored
+    // rather than a pile of charts with a summary bolted on the end.
+    fieldInsights: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          fieldLabel: { type: 'string' },
+          insight: { type: 'string' },
+        },
+        required: ['fieldLabel', 'insight'],
+      },
+    },
   },
-  required: ['summary', 'keyInsights', 'notableQuotes', 'recommendations', 'conclusion'],
+  required: ['summary', 'keyInsights', 'notableQuotes', 'recommendations', 'conclusion', 'fieldInsights'],
 }
 
 function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string | null {
@@ -755,6 +770,9 @@ function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string |
     case 'matrix':
       if (!result.rows.length) return null
       return `${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.label}: ${r.value}`).join(', ')}`
+    case 'rating':
+      if (!result.answered) return null
+      return `${field.label} (rating out of ${result.max}): average ${result.avg.toFixed(1)}, distribution — ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
   }
 }
 
@@ -778,6 +796,7 @@ Write:
 - notableQuotes: up to 4 short verbatim excerpts from the open-text answers above that best represent common themes (return an empty array if there are no open-text questions with meaningful answers).
 - recommendations: 2-5 concrete, actionable recommendations based on the findings.
 - conclusion: a short closing paragraph.
+- fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldLabel to the exact question text as written above (the part before the parenthesis), so it can be matched back to the right chart.
 
 Keep the tone professional and specific to this data — no generic filler. Respond only with the JSON described by the schema.`
 }

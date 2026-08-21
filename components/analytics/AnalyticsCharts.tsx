@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Legend,
 } from 'recharts'
 import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
+import { ratingGradient } from '@/lib/analytics'
 import type { FormField } from '@/app/actions/forms'
 
 // ── colour palette — built from the Exp brand red/silver scale (see
@@ -61,10 +62,10 @@ export function BarList({ data, highlightMax }: { data: Bucket[]; highlightMax?:
 }
 
 // ── Donut chart ─────────────────────────────────────────────────────────────
-export function DonutChart({ data }: { data: Bucket[] }) {
+export function DonutChart({ data, colors }: { data: Bucket[]; colors?: string[] }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   if (!total) return <p className="text-sm text-gray-400 py-4 text-center">No data yet</p>
-  const dataWithColor = data.map((d, i) => ({ ...d, fill: color(i, d.label) }))
+  const dataWithColor = data.map((d, i) => ({ ...d, fill: colors ? colors[i % colors.length] : color(i, d.label) }))
   return (
     <div className="flex items-center gap-6 flex-wrap">
       <ResponsiveContainer width={180} height={180}>
@@ -240,6 +241,18 @@ export function FieldCard({ field, result }: { field: FormField; result: FieldRe
     return (
       <ChartCard title={field.label} meta={`${result.answered} answered · average out of ${result.scaleMax}`} tableRows={result.rows} tableValueHeader="Average">
         <BarList data={result.rows} highlightMax />
+      </ChartCard>
+    )
+  }
+  if (result.kind === 'rating') {
+    if (!result.answered) return <ChartCard title={field.label} meta="No answers yet"><p className="text-sm text-gray-400 py-4 text-center">No answers yet</p></ChartCard>
+    return (
+      <ChartCard title={field.label} meta={`${result.answered} answered${result.unanswered > 0 ? ` · ${result.unanswered} skipped` : ''}`} tableRows={result.buckets}>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <StatTile label="Average rating" value={`${result.avg.toFixed(1)} / ${result.max}`} />
+          <StatTile label="Responses" value={result.answered} />
+        </div>
+        <DonutChart data={result.buckets} colors={ratingGradient(result.buckets.length)} />
       </ChartCard>
     )
   }
