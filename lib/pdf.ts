@@ -41,17 +41,30 @@ function cropCanvas(source: HTMLCanvasElement, sy: number, sh: number): HTMLCanv
   return c
 }
 
-export async function exportAnalyticsPDF(element: HTMLElement, title: string) {
+export async function exportAnalyticsPDF(
+  element: HTMLElement,
+  title: string,
+  onProgress?: (done: number, total: number) => void
+) {
   const blocks = getBlocks(element)
+  const logo = await loadImage('/exp-logo.png')
 
-  const [canvases, logo] = await Promise.all([
-    Promise.all(blocks.map(block => html2canvas(block, {
+  // Capturing every block via Promise.all fired 15-20 synchronous,
+  // CPU-heavy html2canvas renders back to back with no gap between them —
+  // the tab looked frozen for a long stretch with zero feedback that
+  // anything was happening. Doing them one at a time and yielding a frame
+  // after each lets the browser actually paint a progress update and stay
+  // responsive, at the cost of the whole export taking a little longer.
+  const canvases: HTMLCanvasElement[] = []
+  for (let i = 0; i < blocks.length; i++) {
+    canvases.push(await html2canvas(blocks[i], {
       backgroundColor: '#ffffff',
       scale: 2,
       useCORS: true,
-    }))),
-    loadImage('/exp-logo.png'),
-  ])
+    }))
+    onProgress?.(i + 1, blocks.length)
+    await new Promise(resolve => requestAnimationFrame(resolve))
+  }
 
   const pdf = new jsPDF('p', 'pt', 'a4')
   const pageWidth    = pdf.internal.pageSize.getWidth()
