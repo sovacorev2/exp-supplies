@@ -707,7 +707,7 @@ export async function getDashboardStats() {
   }
 }
 
-// ── AI-generated report narrative ─────────────────────────────────────
+// ── Smart Insights report narrative ─────────────────────────────────────
 
 export type ReportNarrative = {
   summary: string
@@ -752,6 +752,9 @@ function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string |
       if (!sample.length) return null
       return `${field.label} (open text, ${result.answered} answers): ${sample.map(s => `"${s}"`).join(' | ')}`
     }
+    case 'matrix':
+      if (!result.rows.length) return null
+      return `${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.label}: ${r.value}`).join(', ')}`
   }
 }
 
@@ -802,7 +805,7 @@ export async function generateReportNarrative(
     return { ok: true, data: cached.narrative as ReportNarrative, cached: true }
   }
 
-  if (subs.length < 3) return { ok: false, error: 'Not enough responses yet for AI insights' }
+  if (subs.length < 3) return { ok: false, error: 'Not enough responses yet for Smart Insights' }
 
   const fields: FormField[] = typeof form.fields === 'string' ? JSON.parse(form.fields) : form.fields || []
   const prompt = buildNarrativePrompt({ name: form.name, description: form.description, fields }, subs)

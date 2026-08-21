@@ -13,7 +13,8 @@ export type BooleanResult    = { kind: 'boolean';      yes: number; no: number; 
 export type NumericResult    = { kind: 'numeric';      answered: number; min: number; max: number; avg: number; median: number; histogram: Bucket[] }
 export type DateResult       = { kind: 'date';         answered: number; unanswered: number; buckets: Bucket[] }
 export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[]; allAnswers?: string[] }
-export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult
+export type MatrixResult     = { kind: 'matrix';       rows: Bucket[]; answered: number; scaleMax: number }
+export type FieldResult      = CategoricalResult | MultiResult | BooleanResult | NumericResult | DateResult | TextResult | MatrixResult
 
 export type RadarAxis = { label: string; avg: number; min: number; max: number; answered: number }
 
@@ -113,6 +114,62 @@ function analyzeText(field: FormField, subs: Submission[], full: boolean = false
   return { kind: 'text', answered: answers.length, total: subs.length, topAnswers, samples: answers.slice(0, 5), allAnswers: full ? answers : undefined }
 }
 
+function analyzeRating(field: FormField, subs: Submission[]): CategoricalResult {
+  const min = field.minValue ?? 1
+  const max = field.maxValue ?? 5
+  const answers = answersFor(subs, field.label)
+  // Every rating level gets a bucket even at zero responses, so the legend
+  // is always complete instead of silently omitting untouched ratings.
+  const counts = new Map<string, number>()
+  for (let v = min; v <= max; v++) counts.set(`Rating ${v}`, 0)
+  answers.forEach(v => {
+    const label = `Rating ${v}`
+    if (counts.has(label)) counts.set(label, (counts.get(label) ?? 0) + 1)
+  })
+  return {
+    kind: 'categorical',
+    answered: answers.length,
+    unanswered: subs.length - answers.length,
+    buckets: Array.from(counts.entries()).map(([label, value]) => ({ label, value })),
+  }
+}
+
+function analyzeMatrix(field: FormField, subs: Submission[]): MatrixResult {
+  const rowLabels = (field.options ?? []).map(o => typeof o === 'string' ? o : o.label)
+  const sums = new Map<string, { total: number; count: number }>(rowLabels.map(r => [r, { total: 0, count: 0 }]))
+  let answered = 0
+  answersFor(subs, field.label).forEach(raw => {
+    answered++
+    raw.split('||').filter(Boolean).forEach(pair => {
+      const [row, scoreStr] = pair.split(':')
+      const score = parseFloat(scoreStr)
+      const entry = sums.get(row)
+      if (entry && !isNaN(score)) { entry.total += score; entry.count++ }
+    })
+  })
+  const rows = rowLabels.map(row => {
+    const e = sums.get(row)!
+    return { label: row, value: e.count ? Math.round((e.total / e.count) * 10) / 10 : 0 }
+  })
+  return { kind: 'matrix', rows, answered, scaleMax: field.maxValue ?? 5 }
+}
+
+// Free-text fields like "Occupation" or "Residence" aren't a dropdown, but
+// their answers cluster into a small set of short, repeated values just
+// like a select field would — worth a real bar/donut chart instead of the
+// generic text treatment. Genuine open-ended feedback ("why did you choose
+// this") has answers that are long and mostly unique, so it's excluded by
+// requiring short answers AND meaningful repetition — conservative on
+// purpose to avoid misreading real open text as categorical.
+function analyzeShortAnswerAsCategorical(field: FormField, subs: Submission[], full: boolean): CategoricalResult | null {
+  const answers = answersFor(subs, field.label)
+  if (answers.length < 4) return null
+  const distinct = new Set(answers)
+  const avgLen = answers.reduce((s, a) => s + a.length, 0) / answers.length
+  if (avgLen > 30 || distinct.size > 12 || distinct.size > answers.length * 0.6) return null
+  return analyzeSelect(field, subs, full)
+}
+
 export function analyzeField(field: FormField, subs: Submission[], full: boolean = false): FieldResult {
   switch (field.type) {
     case 'select':      return analyzeSelect(field, subs, full)
@@ -120,8 +177,26 @@ export function analyzeField(field: FormField, subs: Submission[], full: boolean
     case 'checkbox':    return analyzeBoolean(field, subs, full)
     case 'number':      return analyzeNumber(field, subs, full)
     case 'date':        return analyzeDate(field, subs, full)
-    default:            return analyzeText(field, subs, full)
+    case 'rating':      return analyzeRating(field, subs)
+    case 'matrix':      return analyzeMatrix(field, subs)
+    default:            return analyzeShortAnswerAsCategorical(field, subs, full) ?? analyzeText(field, subs, full)
   }
+}
+
+// Human-readable single-line preview of a stored answer, aware of field
+// type so matrix/rating/multiselect values don't leak their raw internal
+// "Row:Score||Row:Score" encoding into admin list/preview columns.
+export function formatAnswerPreview(value: unknown, fieldDef?: FormField): string {
+  if (value === '' || value == null) return ''
+  const str = String(value)
+  if (fieldDef?.type === 'matrix') {
+    return str.split('||').filter(Boolean)
+      .map(pair => { const [row, score] = pair.split(':'); return `${row}: ${score}` })
+      .join(', ')
+  }
+  if (fieldDef?.type === 'rating') return `${str}/${fieldDef.maxValue ?? 5}`
+  if (str.includes('||')) return str.split('||').map(v => v.trim()).filter(Boolean).join(', ')
+  return str
 }
 
 export function computeRatingRadar(fields: FormField[], subs: Submission[]): RadarAxis[] | null {

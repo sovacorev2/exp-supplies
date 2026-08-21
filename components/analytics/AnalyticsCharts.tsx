@@ -235,6 +235,14 @@ export function FieldCard({ field, result }: { field: FormField; result: FieldRe
     if (!result.buckets.length) return <ChartCard title={field.label} meta={meta}><p className="text-sm text-gray-400 py-4 text-center">No answers yet</p></ChartCard>
     return <ChartCard title={field.label} meta={meta} tableRows={result.buckets}><BarList data={result.buckets} highlightMax /></ChartCard>
   }
+  if (result.kind === 'matrix') {
+    if (!result.answered) return <ChartCard title={field.label} meta="No answers yet"><p className="text-sm text-gray-400 py-4 text-center">No answers yet</p></ChartCard>
+    return (
+      <ChartCard title={field.label} meta={`${result.answered} answered · average out of ${result.scaleMax}`} tableRows={result.rows} tableValueHeader="Average">
+        <BarList data={result.rows} highlightMax />
+      </ChartCard>
+    )
+  }
   // text
   return <TextFieldCard field={field} result={result} />
 }

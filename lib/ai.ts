@@ -21,7 +21,7 @@ export async function callGemini<T>(
   responseSchema: object
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   const keys = getGeminiKeys()
-  if (!keys.length) return { ok: false, error: 'AI insights are not configured' }
+  if (!keys.length) return { ok: false, error: 'Smart Insights are not configured' }
 
   const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash'
   const start = Math.floor(Math.random() * keys.length)

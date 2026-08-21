@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
 import { generateReportNarrative } from '@/app/actions/forms'
-import { analyzeField, computeOverview, computeRatingRadar, exportCSV } from '@/lib/analytics'
+import { analyzeField, computeOverview, computeRatingRadar, exportCSV, formatAnswerPreview } from '@/lib/analytics'
 import { exportAnalyticsPDF } from '@/lib/pdf'
 import {
   StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
@@ -198,9 +198,19 @@ export default function AnalyticsClient({
             </thead>
             <tbody>
               {filtered.map((s, idx) => {
-                const answers      = Object.values(s.data as Record<string, unknown>).filter(Boolean)
-                const firstAnswer  = String(answers[0] ?? '—').slice(0, 80)
-                const fieldsCount  = answers.length
+                const dataEntries  = Object.entries(s.data as Record<string, unknown>).filter(([, v]) => v !== '' && v != null)
+                const form         = allForms.find(f => f.id === s.form_id)
+                // Prefer form field order over object key order, so "first
+                // answer" means the first *question*, not whatever key
+                // happened to be inserted first — and look up its type so
+                // matrix/rating/multiselect values format cleanly instead
+                // of leaking their raw "Row:Score||Row:Score" encoding.
+                const firstEntry   = (form?.fields ?? [])
+                  .map(f => dataEntries.find(([k]) => k === f.label))
+                  .find((e): e is [string, unknown] => !!e) ?? dataEntries[0]
+                const firstFieldDef = firstEntry ? form?.fields.find(f => f.label === firstEntry[0]) : undefined
+                const firstAnswer  = firstEntry ? formatAnswerPreview(firstEntry[1], firstFieldDef).slice(0, 80) : '—'
+                const fieldsCount  = dataEntries.length
                 const date         = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 return (
                   <tr key={s.id} className="border-b border-gray-100 dark:border-gray-700/60 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
