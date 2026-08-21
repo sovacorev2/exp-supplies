@@ -54,8 +54,11 @@ export default function ReportView({ form, submissions, narrative }: { form: For
     ? [...locationResult.buckets].sort((a, b) => b.value - a.value).slice(0, 3).map(b => b.label).join(', ')
     : null
 
-  function findInsight(fieldLabel?: string) {
-    return fieldLabel ? narrative?.fieldInsights?.find(fi => fi.fieldLabel === fieldLabel) : undefined
+  function findInsight(fieldId?: string) {
+    return fieldId ? narrative?.fieldInsights?.find(fi => fi.fieldId === fieldId) : undefined
+  }
+  function findTextSummary(fieldId?: string) {
+    return fieldId ? narrative?.textSummaries?.find(ts => ts.fieldId === fieldId) : undefined
   }
 
   function AnalystTake({ insight }: { insight?: string }) {
@@ -182,7 +185,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
                     ))}
                   </div>
                 </div>
-                <AnalystTake insight={findInsight(genderField?.label)?.insight} />
+                <AnalystTake insight={findInsight(genderField?.id)?.insight} />
               </div>
             )}
 
@@ -190,7 +193,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
               <div className="mb-8">
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Occupation Distribution</h3>
                 <ProportionalBars buckets={occupationResult.buckets} />
-                <AnalystTake insight={findInsight(occupationField?.label)?.insight} />
+                <AnalystTake insight={findInsight(occupationField?.id)?.insight} />
               </div>
             )}
 
@@ -198,7 +201,7 @@ export default function ReportView({ form, submissions, narrative }: { form: For
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Residence Distribution</h3>
                 <ProportionalBars buckets={locationResult.buckets} />
-                <AnalystTake insight={findInsight(locationField?.label)?.insight} />
+                <AnalystTake insight={findInsight(locationField?.id)?.insight} />
               </div>
             )}
           </div>
@@ -216,8 +219,8 @@ export default function ReportView({ form, submissions, narrative }: { form: For
           const result = analyzeField(field, filteredSubs, true)
           const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
           const responseRate = Math.round((answered / filteredSubs.length) * 100)
-          const fieldInsight = findInsight(field.label)
-          const textSummary  = narrative?.textSummaries?.find(ts => ts.fieldLabel === field.label)
+          const fieldInsight = findInsight(field.id)
+          const textSummary  = findTextSummary(field.id)
 
           return (
             <div key={field.id} className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
