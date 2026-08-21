@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, jsonb, integer } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 // --- Better Auth required tables -------------------------------------------
@@ -131,4 +131,15 @@ export const submissionAttempts = pgTable('submission_attempts', {
     .notNull()
     .references(() => forms.id, { onDelete: 'cascade' }),
   created_at: timestamp('created_at').notNull().defaultNow(),
+})
+
+export const aiReportNarratives = pgTable('ai_report_narratives', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .unique()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  submission_count: integer('submission_count').notNull(),
+  narrative: jsonb('narrative').notNull(),
+  generated_at: timestamp('generated_at').notNull().defaultNow(),
 })

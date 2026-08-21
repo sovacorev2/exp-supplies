@@ -1,12 +1,14 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts } from '@/lib/db/schema'
+import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives } from '@/lib/db/schema'
 import { eq, desc, ne, and, or, gt } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
 import { sendEmail } from '@/lib/email'
+import { callGemini } from '@/lib/ai'
+import { analyzeField, isPrivateField } from '@/lib/analytics'
 
 const RATE_LIMIT_WINDOW_MINUTES = 15
 const RATE_LIMIT_MAX_ATTEMPTS = 5
@@ -703,4 +705,118 @@ export async function getDashboardStats() {
     rejected: allSubmissions.filter((s: any) => s.status === 'rejected').length,
     categoryCounts,
   }
+}
+
+// ── AI-generated report narrative ─────────────────────────────────────
+
+export type ReportNarrative = {
+  summary: string
+  keyInsights: string[]
+  notableQuotes: string[]
+  recommendations: string[]
+  conclusion: string
+}
+
+const NARRATIVE_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    keyInsights: { type: 'array', items: { type: 'string' } },
+    notableQuotes: { type: 'array', items: { type: 'string' } },
+    recommendations: { type: 'array', items: { type: 'string' } },
+    conclusion: { type: 'string' },
+  },
+  required: ['summary', 'keyInsights', 'notableQuotes', 'recommendations', 'conclusion'],
+}
+
+function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string | null {
+  const result = analyzeField(field, subs, true)
+  switch (result.kind) {
+    case 'categorical':
+      if (!result.buckets.length) return null
+      return `${field.label} (choice): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}${result.unanswered ? ` (${result.unanswered} skipped)` : ''}`
+    case 'multi':
+      if (!result.buckets.length) return null
+      return `${field.label} (multi-select): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
+    case 'boolean':
+      if (!result.yes && !result.no) return null
+      return `${field.label} (yes/no): Yes ${result.yes}, No ${result.no}`
+    case 'numeric':
+      if (!result.answered) return null
+      return `${field.label} (number): average ${result.avg.toFixed(1)}, median ${result.median}, range ${result.min}-${result.max}`
+    case 'date':
+      if (!result.buckets.length) return null
+      return `${field.label} (date): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
+    case 'text': {
+      const sample = (result.allAnswers ?? result.samples).slice(0, 30).map(a => a.slice(0, 200))
+      if (!sample.length) return null
+      return `${field.label} (open text, ${result.answered} answers): ${sample.map(s => `"${s}"`).join(' | ')}`
+    }
+  }
+}
+
+function buildNarrativePrompt(form: { name: string; description: string | null; fields: FormField[] }, subs: Submission[]): string {
+  const fieldSummaries = (form.fields ?? [])
+    .filter(f => f.section !== 'SECTION_HEADER' && !isPrivateField(f.label))
+    .map(f => summarizeFieldForPrompt(f, subs))
+    .filter((line): line is string => Boolean(line))
+    .join('\n')
+
+  return `You are a data analyst writing a concise, professional report summary for a survey/form titled "${form.name}"${form.description ? ` (${form.description})` : ''}.
+
+Total responses: ${subs.length}
+
+Aggregated results per question:
+${fieldSummaries}
+
+Write:
+- summary: a 2-4 sentence executive summary of the overall findings.
+- keyInsights: 3-6 short bullet points, each grounded in the actual numbers above — no invented statistics.
+- notableQuotes: up to 4 short verbatim excerpts from the open-text answers above that best represent common themes (return an empty array if there are no open-text questions with meaningful answers).
+- recommendations: 2-5 concrete, actionable recommendations based on the findings.
+- conclusion: a short closing paragraph.
+
+Keep the tone professional and specific to this data — no generic filler. Respond only with the JSON described by the schema.`
+}
+
+export async function generateReportNarrative(
+  formId: string,
+  force = false
+): Promise<{ ok: true; data: ReportNarrative; cached: boolean } | { ok: false; error: string }> {
+  const currentUser = await requireUser()
+  const form = await getOwnedForm(formId, currentUser)
+
+  const subRows = await db
+    .select()
+    .from(submissions)
+    .where(and(eq(submissions.form_id, formId), ne(submissions.status, 'draft')))
+  const subs: Submission[] = subRows.map((s: any) => ({
+    ...s,
+    data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
+  }))
+
+  const existing = await db.select().from(aiReportNarratives).where(eq(aiReportNarratives.form_id, formId)).limit(1)
+  const cached = existing[0]
+
+  if (!force && cached && cached.submission_count === subs.length) {
+    return { ok: true, data: cached.narrative as ReportNarrative, cached: true }
+  }
+
+  if (subs.length < 3) return { ok: false, error: 'Not enough responses yet for AI insights' }
+
+  const fields: FormField[] = typeof form.fields === 'string' ? JSON.parse(form.fields) : form.fields || []
+  const prompt = buildNarrativePrompt({ name: form.name, description: form.description, fields }, subs)
+  const result = await callGemini<ReportNarrative>(prompt, NARRATIVE_SCHEMA)
+  if (!result.ok) return result
+
+  if (cached) {
+    await db
+      .update(aiReportNarratives)
+      .set({ submission_count: subs.length, narrative: result.data, generated_at: new Date() })
+      .where(eq(aiReportNarratives.form_id, formId))
+  } else {
+    await db.insert(aiReportNarratives).values({ form_id: formId, submission_count: subs.length, narrative: result.data })
+  }
+
+  return { ok: true, data: result.data, cached: false }
 }
