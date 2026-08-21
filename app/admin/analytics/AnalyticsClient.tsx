@@ -43,6 +43,7 @@ export default function AnalyticsClient({
   const [narrative, setNarrative] = useState<ReportNarrative | null>(null)
   const [narrativeNotice, setNarrativeNotice] = useState<string | null>(null)
   const [merges, setMerges] = useState<Record<string, FieldValueMerge[]>>({})
+  const [regeneratingInsights, setRegeneratingInsights] = useState(false)
 
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
@@ -133,10 +134,10 @@ export default function AnalyticsClient({
   // Failures here never block the report — they fall back to the plain
   // chart report with a brief notice, since Print/Download must keep
   // working exactly as before for anyone who didn't ask for AI insights.
-  async function prepareNarrative() {
+  async function prepareNarrative(force = false) {
     if (!includeAiInsights || !selectedForm) { setNarrative(null); return }
     setPreparingMessage('Generating insights…')
-    const result = await generateReportNarrative(selectedForm.id)
+    const result = await generateReportNarrative(selectedForm.id, force)
     if (result.ok) {
       setNarrative(result.data)
     } else {
@@ -146,6 +147,28 @@ export default function AnalyticsClient({
       setTimeout(() => setNarrativeNotice(null), 5000)
     }
     setPreparingMessage('Preparing report…')
+  }
+
+  // Bypasses the cached narrative — needed any time the underlying prompt
+  // or response shape changes server-side, since a stale cached row won't
+  // match the new shape and would otherwise silently fall back to the
+  // plain report until the response count next changes.
+  async function handleRegenerateInsights() {
+    if (!selectedForm) return
+    setRegeneratingInsights(true)
+    try {
+      const result = await generateReportNarrative(selectedForm.id, true)
+      if (result.ok) {
+        setNarrative(result.data)
+        setNarrativeNotice('Insights regenerated.')
+      } else {
+        setNarrativeNotice(`Regenerate failed: ${result.error}`)
+      }
+      setTimeout(() => setNarrativeNotice(null), 4000)
+    } finally {
+      setRegeneratingInsights(false)
+      setExportMenu(false)
+    }
   }
 
   async function handlePrintReport() {
@@ -430,6 +453,18 @@ export default function AnalyticsClient({
                       </span>
                     </span>
                   </label>
+                  {includeAiInsights && !aiInsightsDisabledReason && (
+                    <button
+                      onClick={handleRegenerateInsights}
+                      disabled={regeneratingInsights}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                    >
+                      <RefreshCw size={13} className={`text-gray-400 flex-shrink-0 ${regeneratingInsights ? 'animate-spin' : ''}`} />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {regeneratingInsights ? 'Regenerating…' : 'Regenerate insights (ignore cache)'}
+                      </span>
+                    </button>
+                  )}
                   <button
                     onClick={() => { exportCSV(mergedSubs, selectedForm); setExportMenu(false) }}
                     className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

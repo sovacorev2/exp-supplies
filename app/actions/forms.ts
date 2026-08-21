@@ -762,8 +762,8 @@ export type ReportNarrative = {
   notableQuotes: string[]
   recommendations: string[]
   conclusion: string
-  fieldInsights: { fieldLabel: string; insight: string }[]
-  textSummaries: { fieldLabel: string; summary: string }[]
+  fieldInsights: { fieldId: string; insight: string }[]
+  textSummaries: { fieldId: string; summary: string }[]
 }
 
 const NARRATIVE_SCHEMA = {
@@ -777,15 +777,19 @@ const NARRATIVE_SCHEMA = {
     // Per-question commentary rendered directly under each chart in the
     // report — this is what actually makes the analysis feel authored
     // rather than a pile of charts with a summary bolted on the end.
+    // Keyed by fieldId (not the question text) — asking the model to
+    // transcribe a full sentence back verbatim as a match key is fragile
+    // (any paraphrase/typo silently breaks the lookup with no visible
+    // error); ids are short tokens it can copy far more reliably.
     fieldInsights: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          fieldLabel: { type: 'string' },
+          fieldId: { type: 'string' },
           insight: { type: 'string' },
         },
-        required: ['fieldLabel', 'insight'],
+        required: ['fieldId', 'insight'],
       },
     },
     // Replaces the raw "every individual answer" dump for open-ended text
@@ -795,10 +799,10 @@ const NARRATIVE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          fieldLabel: { type: 'string' },
+          fieldId: { type: 'string' },
           summary: { type: 'string' },
         },
-        required: ['fieldLabel', 'summary'],
+        required: ['fieldId', 'summary'],
       },
     },
   },
@@ -807,33 +811,34 @@ const NARRATIVE_SCHEMA = {
 
 function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string | null {
   const result = analyzeField(field, subs, true)
+  const id = field.id
   switch (result.kind) {
     case 'categorical':
       if (!result.buckets.length) return null
-      return `${field.label} (choice): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}${result.unanswered ? ` (${result.unanswered} skipped)` : ''}`
+      return `[${id}] ${field.label} (choice): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}${result.unanswered ? ` (${result.unanswered} skipped)` : ''}`
     case 'multi':
       if (!result.buckets.length) return null
-      return `${field.label} (multi-select): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
+      return `[${id}] ${field.label} (multi-select): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
     case 'boolean':
       if (!result.yes && !result.no) return null
-      return `${field.label} (yes/no): Yes ${result.yes}, No ${result.no}`
+      return `[${id}] ${field.label} (yes/no): Yes ${result.yes}, No ${result.no}`
     case 'numeric':
       if (!result.answered) return null
-      return `${field.label} (number): average ${result.avg.toFixed(1)}, median ${result.median}, range ${result.min}-${result.max}`
+      return `[${id}] ${field.label} (number): average ${result.avg.toFixed(1)}, median ${result.median}, range ${result.min}-${result.max}`
     case 'date':
       if (!result.buckets.length) return null
-      return `${field.label} (date): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
+      return `[${id}] ${field.label} (date): ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
     case 'text': {
       const sample = (result.allAnswers ?? result.samples).slice(0, 30).map(a => a.slice(0, 200))
       if (!sample.length) return null
-      return `${field.label} (open text, ${result.answered} answers): ${sample.map(s => `"${s}"`).join(' | ')}`
+      return `[${id}] ${field.label} (open text, ${result.answered} answers): ${sample.map(s => `"${s}"`).join(' | ')}`
     }
     case 'matrix':
       if (!result.rows.length) return null
-      return `${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.row}: ${r.avg}`).join(', ')}`
+      return `[${id}] ${field.label} (rated rows, out of ${result.scaleMax}): ${result.rows.map(r => `${r.row}: ${r.avg}`).join(', ')}`
     case 'rating':
       if (!result.answered) return null
-      return `${field.label} (rating out of ${result.max}): average ${result.avg.toFixed(1)}, distribution — ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
+      return `[${id}] ${field.label} (rating out of ${result.max}): average ${result.avg.toFixed(1)}, distribution — ${result.buckets.map(b => `${b.label}: ${b.value}`).join(', ')}`
   }
 }
 
@@ -848,7 +853,7 @@ function buildNarrativePrompt(form: { name: string; description: string | null; 
 
 Total responses: ${subs.length}
 
-Aggregated results per question:
+Aggregated results per question, each prefixed with its id in [brackets]:
 ${fieldSummaries}
 
 Write:
@@ -857,8 +862,8 @@ Write:
 - notableQuotes: up to 4 short verbatim excerpts from the open-text answers above that best represent common themes (return an empty array if there are no open-text questions with meaningful answers).
 - recommendations: 2-5 concrete, actionable recommendations based on the findings.
 - conclusion: a short closing paragraph.
-- fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldLabel to the exact question text as written above (the part before the parenthesis), so it can be matched back to the right chart.
-- textSummaries: for each "(open text, N answers)" question above, write a detailed 3-6 sentence thematic summary of ALL the answers listed for it — group similar feedback together, name specific products/samples respondents mention by name, call out the most frequently requested changes, and note any minority or conflicting opinions. This summary will completely replace showing every individual raw answer in the report, so it needs to be thorough enough that a reader doesn't need to see the raw list — don't just restate 2-3 examples and stop. Skip a text question entirely if it has fewer than 3 answered responses. Set fieldLabel to the exact question text as written above.
+- fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim — do not shorten, paraphrase, or use the question text.
+- textSummaries: for each "(open text, N answers)" question above, write a detailed 3-6 sentence thematic summary of ALL the answers listed for it — group similar feedback together, name specific products/samples respondents mention by name, call out the most frequently requested changes, and note any minority or conflicting opinions. This summary will completely replace showing every individual raw answer in the report, so it needs to be thorough enough that a reader doesn't need to see the raw list — don't just restate 2-3 examples and stop. Skip a text question entirely if it has fewer than 3 answered responses. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim.
 
 Keep the tone professional and specific to this data — no generic filler. Respond only with the JSON described by the schema.`
 }
