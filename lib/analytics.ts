@@ -300,10 +300,19 @@ export function computeOverview(subs: Submission[]): OverviewData {
     formCounts.set(name, (formCounts.get(name) ?? 0) + 1)
   })
 
+  // Anchored and formatted entirely in UTC — toLocaleDateString without an
+  // explicit timeZone reads the runtime's local zone, which differs
+  // between Vercel's server (UTC) and a visitor's browser. That mismatch
+  // produced different label text on the server-rendered HTML vs the
+  // client's hydration pass (React error #418, "text content does not
+  // match"). Using a single UTC reference point removes the ambiguity.
   const days = new Map<string, string>()
+  const todayUTC = new Date()
+  todayUTC.setUTCHours(0, 0, 0, 0)
   for (let i = 13; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i)
-    days.set(d.toISOString().slice(0, 10), d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+    const d = new Date(todayUTC)
+    d.setUTCDate(d.getUTCDate() - i)
+    days.set(d.toISOString().slice(0, 10), d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }))
   }
   const dayCounts = new Map<string, number>(Array.from(days.keys()).map(k => [k, 0]))
   subs.forEach(s => {
