@@ -1,15 +1,18 @@
 import { getForms, getSubmissions } from '@/app/actions/forms'
+import { requireUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
-import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
+import { ExternalLink, Copy, Pencil, PlusCircle, UserCircle2 } from 'lucide-react'
 import FormActions from './FormActions'
 
 export const revalidate = 0
 
 export default async function FormsPage() {
-  const [forms, submissions] = await Promise.all([
+  const [currentUser, forms, submissions] = await Promise.all([
+    requireUser(),
     getForms(),
     getSubmissions(),
   ])
+  const isAdmin = currentUser.role === 'admin'
 
   const countMap: Record<string, number> = {}
   submissions.forEach(s => { countMap[s.form_id] = (countMap[s.form_id] || 0) + 1 })
@@ -79,6 +82,12 @@ export default async function FormsPage() {
                       <span>{form.fields.length} fields</span>
                       <span className="text-brand-600 dark:text-brand-400 font-semibold">{count} responses</span>
                     </p>
+                    {isAdmin && (form.owner_name || form.owner_email) && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-1.5">
+                        <UserCircle2 size={13} className="flex-shrink-0" />
+                        Created by {form.owner_name || form.owner_email}
+                      </p>
+                    )}
                   </div>
 
                   {/* Description */}

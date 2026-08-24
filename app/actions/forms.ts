@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives, fieldValueMerges } from '@/lib/db/schema'
+import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives, fieldValueMerges, user } from '@/lib/db/schema'
 import { eq, desc, ne, and, or, gt } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
@@ -64,6 +64,8 @@ export interface Form {
   user_id: string | null
   created_at: Date
   updated_at: Date
+  owner_name?: string | null
+  owner_email?: string | null
 }
 
 export interface Submission {
@@ -128,14 +130,34 @@ async function getOwnedSubmission(id: string, currentUser: CurrentUser) {
 
 export async function getForms(): Promise<Form[]> {
   const currentUser = await requireUser()
-  const rows =
-    currentUser.role === 'admin'
-      ? await db.select().from(forms).orderBy(desc(forms.created_at))
-      : await db
-          .select()
-          .from(forms)
-          .where(eq(forms.user_id, currentUser.id))
-          .orderBy(desc(forms.created_at))
+  const isAdmin = currentUser.role === 'admin'
+  // Owner name/email only matters when an admin is looking at everyone's
+  // forms — a regular user's list is always their own forms, so the join
+  // is skipped there entirely.
+  const rows = isAdmin
+    ? await db
+        .select({
+          id: forms.id,
+          name: forms.name,
+          description: forms.description,
+          category: forms.category,
+          fields: forms.fields,
+          is_active: forms.is_active,
+          slug: forms.slug,
+          user_id: forms.user_id,
+          created_at: forms.created_at,
+          updated_at: forms.updated_at,
+          owner_name: user.name,
+          owner_email: user.email,
+        })
+        .from(forms)
+        .leftJoin(user, eq(forms.user_id, user.id))
+        .orderBy(desc(forms.created_at))
+    : await db
+        .select()
+        .from(forms)
+        .where(eq(forms.user_id, currentUser.id))
+        .orderBy(desc(forms.created_at))
 
   return rows.map((row: any) => ({
     ...row,
