@@ -103,7 +103,12 @@ export default async function FormsPage() {
                       {formUrl}
                     </code>
                     <div className="flex-shrink-0">
-                      <FormActions formId={form.id} formUrl={formUrl} isActive={form.is_active} />
+                      <FormActions
+                        formId={form.id}
+                        formUrl={formUrl}
+                        isActive={form.is_active}
+                        canManageAccess={isAdmin || form.user_id === currentUser.id}
+                      />
                     </div>
                   </div>
 
