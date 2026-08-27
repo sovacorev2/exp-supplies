@@ -256,6 +256,7 @@ function analyzeShortAnswerAsCategorical(field: FormField, subs: Submission[], f
 export function analyzeField(field: FormField, subs: Submission[], full: boolean = false): FieldResult {
   switch (field.type) {
     case 'select':      return analyzeSelect(field, subs, full)
+    case 'autocomplete': return analyzeSelect(field, subs, full)
     case 'multiselect': return analyzeMulti(field, subs, full)
     case 'checkbox':    return analyzeBoolean(field, subs, full)
     case 'number':      return analyzeNumber(field, subs, full)

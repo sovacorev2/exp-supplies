@@ -26,6 +26,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'upload',   label: 'File upload' },
   { value: 'rating',   label: 'Rating (1-N)' },
   { value: 'matrix',   label: 'Matrix / Grid' },
+  { value: 'autocomplete', label: 'Searchable list (type to filter)' },
 ]
 
 function uid() { return Math.random().toString(36).slice(2, 8) }
@@ -131,6 +132,8 @@ export default function EditFormPage() {
       // Row labels double as parts of the matrix encoding scheme (Row:score
       // joined by ||), so strip any ':' or '|' to avoid corrupting parsing.
       options = newOptions.split('\n').map(s => s.trim().replace(/[:|]/g, '')).filter(Boolean)
+    } else if (newType === 'autocomplete') {
+      options = newOptions.split('\n').map(s => s.trim()).filter(Boolean)
     }
 
     const field: FormField = {
@@ -244,6 +247,8 @@ export default function EditFormPage() {
       }
     } else if (!isSectionHeader && editType === 'matrix') {
       options = editOptions.split('\n').map(s => s.trim().replace(/[:|]/g, '')).filter(Boolean)
+    } else if (!isSectionHeader && editType === 'autocomplete') {
+      options = editOptions.split('\n').map(s => s.trim()).filter(Boolean)
     }
 
     setFields(prev => prev.map(f =>
@@ -456,6 +461,13 @@ export default function EditFormPage() {
                                 </div>
                               )}
 
+                              {editType === 'autocomplete' && (
+                                <div>
+                                  <label className="label">List to search from (one per line)</label>
+                                  <textarea className="input" value={editOptions} onChange={e => setEditOptions(e.target.value)} rows={3} placeholder="Levis Mokaya&#10;Jane Doe&#10;John Smith" />
+                                </div>
+                              )}
+
                               {(editType === 'select' || editType === 'multiselect') && (
                                 <>
                                   <div>
@@ -592,6 +604,12 @@ export default function EditFormPage() {
                 <textarea className="input" rows={4} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Quality\nTimeliness\nCommunication"} />
               </div>
             )}
+            {newType === 'autocomplete' && (
+              <div>
+                <label className="label">List to search from (one per line)</label>
+                <textarea className="input" rows={4} value={newOptions} onChange={e => setNewOptions(e.target.value)} placeholder={"Levis Mokaya\nJane Doe\nJohn Smith"} />
+              </div>
+            )}
             {(newType === 'select' || newType === 'multiselect') && (
               <>
                 <div>
@@ -639,13 +657,13 @@ export default function EditFormPage() {
                 )}
               </>
             )}
-            {newType !== 'select' && newType !== 'checkbox' && newType !== 'rating' && newType !== 'matrix' && (
+            {newType !== 'select' && newType !== 'checkbox' && newType !== 'rating' && newType !== 'matrix' && newType !== 'autocomplete' && (
               <div>
                 <label className="label">Placeholder text</label>
-                <input 
-                  className="input" 
-                  value={newPlaceholder} 
-                  onChange={e => setNewPlaceholder(e.target.value)} 
+                <input
+                  className="input"
+                  value={newPlaceholder}
+                  onChange={e => setNewPlaceholder(e.target.value)}
                   placeholder="Hint text inside the field"
                 />
               </div>

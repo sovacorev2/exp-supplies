@@ -20,7 +20,7 @@ async function getSubmitterIp(): Promise<string> {
   return h.get('x-real-ip') || 'unknown'
 }
 
-export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload' | 'rating' | 'matrix'
+export type FieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'number' | 'date' | 'checkbox' | 'upload' | 'rating' | 'matrix' | 'autocomplete'
 
 export interface DropdownOption {
   label: string
