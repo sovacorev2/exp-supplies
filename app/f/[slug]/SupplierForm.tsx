@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createSubmission, type Form } from '@/app/actions/forms'
 import { CheckCircle, Loader2, Save, Lock, Copy, Check, Star } from 'lucide-react'
+import { AutocompleteField } from '@/components/AutocompleteField'
 
 const AUTOSAVE_DELAY_MS = 1500
 
@@ -489,6 +490,14 @@ export default function SupplierForm({ form }: { form: Form }) {
                 return <option key={idx} value={label}>{label}</option>
               })}
             </select>
+          ) : field.type === 'autocomplete' ? (
+            <AutocompleteField
+              value={values[field.label] || ''}
+              onChange={v => set(field.label, v)}
+              options={(field.options ?? []).map(opt => typeof opt === 'string' ? opt : opt.label)}
+              placeholder={field.placeholder}
+              error={!!errors[field.label]}
+            />
           ) : field.type === 'multiselect' ? (
             <div className={`space-y-2 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${errors[field.label] ? 'border-red-400' : 'border-gray-300'}`}>
               {field.options && field.options.length > 0 ? field.options.map((opt, idx) => {
