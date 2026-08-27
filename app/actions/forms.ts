@@ -1,8 +1,8 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives, fieldValueMerges, user } from '@/lib/db/schema'
-import { eq, desc, ne, and, or, gt } from 'drizzle-orm'
+import { forms, submissions, shareTokens, analyticsTokens, invitees, submissionAttempts, aiReportNarratives, fieldValueMerges, formCollaborators, user } from '@/lib/db/schema'
+import { eq, desc, ne, and, or, gt, inArray } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
 import { requireUser, ForbiddenError, type CurrentUser } from '@/lib/auth-helpers'
@@ -97,11 +97,26 @@ export interface Invitee {
 
 // ── Ownership helpers ──────────────────────────────────────────────────
 
+async function isCollaborator(formId: string, email: string): Promise<boolean> {
+  const rows = await db.select().from(formCollaborators)
+    .where(and(eq(formCollaborators.form_id, formId), eq(formCollaborators.email, email.toLowerCase())))
+    .limit(1)
+  return rows.length > 0
+}
+
+// A collaborator gets full parity with the owner on this one form (every
+// action funnels through getOwnedForm/getOwnedSubmission below) — deciding
+// who counts as one is centralized here so both gates stay in sync.
+async function canAccessForm(formRow: { id: string; user_id: string | null }, currentUser: CurrentUser): Promise<boolean> {
+  if (currentUser.role === 'admin' || formRow.user_id === currentUser.id) return true
+  return isCollaborator(formRow.id, currentUser.email)
+}
+
 async function getOwnedForm(id: string, currentUser: CurrentUser) {
   const rows = await db.select().from(forms).where(eq(forms.id, id)).limit(1)
   const row = rows[0] as any
   if (!row) throw new Error('Form not found')
-  if (currentUser.role !== 'admin' && row.user_id !== currentUser.id) throw new ForbiddenError()
+  if (!(await canAccessForm(row, currentUser))) throw new ForbiddenError()
   return row
 }
 
@@ -122,8 +137,83 @@ async function getOwnedSubmission(id: string, currentUser: CurrentUser) {
     .limit(1)
   const row = rows[0] as any
   if (!row) throw new Error('Submission not found')
-  if (currentUser.role !== 'admin' && row.forms?.user_id !== currentUser.id) throw new ForbiddenError()
+  if (!row.forms || !(await canAccessForm(row.forms, currentUser))) throw new ForbiddenError()
   return row
+}
+
+async function getCollaboratorFormIds(email: string): Promise<string[]> {
+  const rows = await db.select({ form_id: formCollaborators.form_id }).from(formCollaborators)
+    .where(eq(formCollaborators.email, email.toLowerCase()))
+  return rows.map((r: { form_id: string }) => r.form_id)
+}
+
+// ── Form collaborators (Google Forms-style "Share") ────────────────────
+// A collaborator gets full parity with the owner on this one form — see
+// canAccessForm above, which every per-resource action already routes
+// through. Managing *who* is a collaborator is deliberately owner/admin
+// -only below, so a collaborator with full access can't silently add
+// other people the owner never approved.
+
+export async function getFormCollaborators(formId: string): Promise<{ email: string; created_at: Date }[]> {
+  const currentUser = await requireUser()
+  await getOwnedForm(formId, currentUser)
+  return db
+    .select({ email: formCollaborators.email, created_at: formCollaborators.created_at })
+    .from(formCollaborators)
+    .where(eq(formCollaborators.form_id, formId))
+    .orderBy(desc(formCollaborators.created_at))
+}
+
+export async function addFormCollaborator(
+  formId: string,
+  email: string,
+  origin: string
+): Promise<{ ok: boolean; error?: string }> {
+  const currentUser = await requireUser()
+  const form = await getOwnedForm(formId, currentUser)
+  if (currentUser.role !== 'admin' && form.user_id !== currentUser.id) {
+    return { ok: false, error: 'Only the form owner can manage access' }
+  }
+
+  const normalized = email.trim().toLowerCase()
+  if (!normalized) return { ok: false, error: 'Email is required' }
+  if (normalized === currentUser.email.toLowerCase()) return { ok: false, error: "That's your own account" }
+
+  try {
+    await db.insert(formCollaborators).values({ form_id: formId, email: normalized, invited_by: currentUser.id })
+  } catch {
+    return { ok: false, error: 'This person already has access' }
+  }
+
+  // Best-effort — access is already granted above regardless of whether
+  // this send succeeds (no Resend key configured, domain not verified,
+  // etc. must never block granting access).
+  await sendEmail({
+    to: normalized,
+    subject: `You've been given access to "${form.name}"`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #111;">${form.name}</h2>
+        <p>${currentUser.name || currentUser.email} has given you access to manage "${form.name}" on Exp Forms — responses, analytics, invitees, everything they can do for this form.</p>
+        <p style="margin: 24px 0;">
+          <a href="${origin}/sign-in" style="background: #ED1C24; color: #fff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Sign in</a>
+        </p>
+        <p style="color: #666; font-size: 13px;">Sign in (or create an account) using this email address — ${normalized} — to see it. If you don't have an account yet, sign up with this same email first.</p>
+      </div>
+    `,
+  }).catch(() => {})
+
+  return { ok: true }
+}
+
+export async function removeFormCollaborator(formId: string, email: string): Promise<void> {
+  const currentUser = await requireUser()
+  const form = await getOwnedForm(formId, currentUser)
+  if (currentUser.role !== 'admin' && form.user_id !== currentUser.id) throw new ForbiddenError()
+  await db.delete(formCollaborators).where(and(
+    eq(formCollaborators.form_id, formId),
+    eq(formCollaborators.email, email.trim().toLowerCase())
+  ))
 }
 
 // ── Forms API ──────────────────────────────────────────────────────────
@@ -132,8 +222,9 @@ export async function getForms(): Promise<Form[]> {
   const currentUser = await requireUser()
   const isAdmin = currentUser.role === 'admin'
   // Owner name/email only matters when an admin is looking at everyone's
-  // forms — a regular user's list is always their own forms, so the join
-  // is skipped there entirely.
+  // forms — a regular user's list is their own forms plus any forms
+  // they've been given collaborator access to, so the join is skipped
+  // there entirely.
   const rows = isAdmin
     ? await db
         .select({
@@ -153,11 +244,13 @@ export async function getForms(): Promise<Form[]> {
         .from(forms)
         .leftJoin(user, eq(forms.user_id, user.id))
         .orderBy(desc(forms.created_at))
-    : await db
-        .select()
-        .from(forms)
-        .where(eq(forms.user_id, currentUser.id))
-        .orderBy(desc(forms.created_at))
+    : await (async () => {
+        const collabIds = await getCollaboratorFormIds(currentUser.email)
+        const ownership = collabIds.length
+          ? or(eq(forms.user_id, currentUser.id), inArray(forms.id, collabIds))
+          : eq(forms.user_id, currentUser.id)
+        return db.select().from(forms).where(ownership).orderBy(desc(forms.created_at))
+      })()
 
   return rows.map((row: any) => ({
     ...row,
@@ -248,6 +341,11 @@ export async function toggleFormActive(id: string, is_active: boolean): Promise<
 
 export async function getSubmissions(): Promise<Submission[]> {
   const currentUser = await requireUser()
+  let ownershipCondition = eq(forms.user_id, currentUser.id)
+  if (currentUser.role !== 'admin') {
+    const collabIds = await getCollaboratorFormIds(currentUser.email)
+    if (collabIds.length) ownershipCondition = or(eq(forms.user_id, currentUser.id), inArray(forms.id, collabIds))!
+  }
   const rows =
     currentUser.role === 'admin'
       ? await db
@@ -260,7 +358,7 @@ export async function getSubmissions(): Promise<Submission[]> {
           .select()
           .from(submissions)
           .leftJoin(forms, eq(submissions.form_id, forms.id))
-          .where(and(eq(forms.user_id, currentUser.id), ne(submissions.status, 'draft')))
+          .where(and(ownershipCondition, ne(submissions.status, 'draft')))
           .orderBy(desc(submissions.created_at))
 
   return rows.map((row: any) => {
@@ -746,9 +844,15 @@ export async function getDashboardStats() {
   const currentUser = await requireUser()
   const isAdmin = currentUser.role === 'admin'
 
+  let ownershipCondition = eq(forms.user_id, currentUser.id)
+  if (!isAdmin) {
+    const collabIds = await getCollaboratorFormIds(currentUser.email)
+    if (collabIds.length) ownershipCondition = or(eq(forms.user_id, currentUser.id), inArray(forms.id, collabIds))!
+  }
+
   const allForms: any[] = isAdmin
     ? await db.select().from(forms)
-    : await db.select().from(forms).where(eq(forms.user_id, currentUser.id))
+    : await db.select().from(forms).where(ownershipCondition)
 
   const allSubmissions: any[] = isAdmin
     ? await db.select().from(submissions).where(ne(submissions.status, 'draft'))
@@ -757,7 +861,7 @@ export async function getDashboardStats() {
           .select()
           .from(submissions)
           .leftJoin(forms, eq(submissions.form_id, forms.id))
-          .where(and(eq(forms.user_id, currentUser.id), ne(submissions.status, 'draft')))
+          .where(and(ownershipCondition, ne(submissions.status, 'draft')))
       ).map((row: any) => row.submissions)
 
   const categoryCounts: any = {}

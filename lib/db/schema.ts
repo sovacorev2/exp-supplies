@@ -154,3 +154,13 @@ export const fieldValueMerges = pgTable('field_value_merges', {
   canonical_value: text('canonical_value').notNull(),
   created_at: timestamp('created_at').notNull().defaultNow(),
 })
+
+export const formCollaborators = pgTable('form_collaborators', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  form_id: text('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  invited_by: text('invited_by').references(() => user.id, { onDelete: 'set null' }),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+})

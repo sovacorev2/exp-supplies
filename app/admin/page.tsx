@@ -1,4 +1,5 @@
 import { getForms, getSubmissions } from '@/app/actions/forms'
+import { requireUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
 import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
 import FormActions from './forms/FormActions'
@@ -6,6 +7,7 @@ import FormActions from './forms/FormActions'
 export const revalidate = 0
 
 export default async function FormsPage() {
+  const currentUser = await requireUser()
   let forms: Awaited<ReturnType<typeof getForms>> = []
   let submissions: Awaited<ReturnType<typeof getSubmissions>> = []
   try {
@@ -58,7 +60,12 @@ export default async function FormsPage() {
 
                   <div className="flex items-center gap-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg px-3 py-2 mb-4 border border-brand-200 dark:border-brand-800">
                     <code className="text-xs text-brand-700 dark:text-brand-300 flex-1 truncate font-mono">{formUrl}</code>
-                    <FormActions formId={form.id} formUrl={formUrl} isActive={form.is_active} />
+                    <FormActions
+                      formId={form.id}
+                      formUrl={formUrl}
+                      isActive={form.is_active}
+                      canManageAccess={currentUser.role === 'admin' || form.user_id === currentUser.id}
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
