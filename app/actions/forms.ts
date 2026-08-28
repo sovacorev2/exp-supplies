@@ -325,7 +325,13 @@ export async function updateForm(id: string, updates: Partial<Form>): Promise<Fo
 
 export async function deleteForm(id: string): Promise<void> {
   const currentUser = await requireUser()
-  await getOwnedForm(id, currentUser)
+  const form = await getOwnedForm(id, currentUser)
+  // Deleting the whole form is destructive and permanent — reserved for
+  // the actual owner (or a super-admin), same carve-out as deleting an
+  // individual response. Enforced here, not just hidden in the UI.
+  if (currentUser.role !== 'admin' && form.user_id !== currentUser.id) {
+    throw new ForbiddenError()
+  }
   // Delete all submissions for this form first
   await db.delete(submissions).where(eq(submissions.form_id, id))
   await db.delete(forms).where(eq(forms.id, id))
