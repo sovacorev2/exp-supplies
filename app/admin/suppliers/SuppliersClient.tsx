@@ -48,30 +48,39 @@ export default function SuppliersClient({
     const stats = {
       totalAdults: 0,
       totalChildren: 0,
+      // Whether this form actually has adult/children headcount fields at
+      // all (not just whether any response summed to >0) — the RSVP-style
+      // dashboard below only makes sense for forms shaped like an event
+      // headcount planner. A generic form that merely has *a* field with
+      // "date" in its label (a delivery date, an activation date, etc.)
+      // isn't one, even though it'd otherwise populate dateBreakdown too.
+      hasHeadcountFields: false,
       dateBreakdown: {} as Record<string, { count: number, adults: number, children: number, firstChoiceVotes: number }>,
       preferredDate: '',
       preferredDateHeadcount: 0,
       selectedAllDatesCount: 0,
       noneOfTheDates: { count: 0, adults: 0, children: 0, respondents: [] as Array<{ name: string, reason: string, adults: number, children: number }> },
     }
-    
+
     filtered.forEach(sub => {
       const data = sub.data
-      
+
       // Find count fields - strict matching to avoid false positives
-      const adultField = Object.entries(data).find(([key, val]) => 
+      const adultField = Object.entries(data).find(([key, val]) =>
         (key.toLowerCase().includes('adult') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number')))
       )
       const adultCountParsed = adultField ? parseInt(adultField[1]) : 0
       const adultCount = !isNaN(adultCountParsed) && adultCountParsed >= 0 ? Math.max(0, adultCountParsed) : 0
       if (adultCount > 0) stats.totalAdults += adultCount
-      
-      const childField = Object.entries(data).find(([key, val]) => 
+
+      const childField = Object.entries(data).find(([key, val]) =>
         (key.toLowerCase().includes('child') && (key.toLowerCase().includes('count') || key.toLowerCase().includes('number')))
       )
       const childCountParsed = childField ? parseInt(childField[1]) : 0
       const childCount = !isNaN(childCountParsed) && childCountParsed >= 0 ? Math.max(0, childCountParsed) : 0
       if (childCount > 0) stats.totalChildren += childCount
+
+      if (adultField || childField) stats.hasHeadcountFields = true
       
       // Track date availability - works for single OR multiple dates
       const dateField = Object.entries(data).find(([key, val]) =>
@@ -276,8 +285,12 @@ export default function SuppliersClient({
         </div>
       </div>
 
-      {/* Summary Dashboard - Only show if form has Adult/Children count fields */}
-      {filtered.length > 0 && (summary.totalAdults > 0 || summary.totalChildren > 0 || Object.keys(summary.dateBreakdown).length > 0) && (
+      {/* Summary Dashboard - Only show if the form actually has Adult/Children
+          count fields. Dates alone used to be enough to trigger this (any
+          field with "date" in its label), which showed this RSVP-style
+          headcount dashboard on completely unrelated forms that just happen
+          to ask for *a* date (an activation date, a delivery date, etc.). */}
+      {filtered.length > 0 && summary.hasHeadcountFields && (
         <>
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 border-b border-blue-200 dark:border-gray-600 px-4 md:px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-3 md:p-4 border border-blue-100 dark:border-gray-600">
