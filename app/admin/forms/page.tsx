@@ -7,11 +7,16 @@ import FormActions from './FormActions'
 export const revalidate = 0
 
 export default async function FormsPage() {
-  const [currentUser, forms, submissions] = await Promise.all([
-    requireUser(),
-    getForms(),
-    getSubmissions(),
-  ])
+  const currentUser = await requireUser()
+  let forms: Awaited<ReturnType<typeof getForms>> = []
+  let submissions: Awaited<ReturnType<typeof getSubmissions>> = []
+  let loadError = false
+  try {
+    ;[forms, submissions] = await Promise.all([getForms(), getSubmissions()])
+  } catch (e) {
+    console.error('[v0] admin/forms/page DB error:', e)
+    loadError = true
+  }
   const isAdmin = currentUser.role === 'admin'
 
   const countMap: Record<string, number> = {}
@@ -38,13 +43,22 @@ export default async function FormsPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {loadError && (
+          <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            Couldn't load forms right now — this is usually a temporary database issue. Try refreshing the page.
+          </div>
+        )}
         {forms.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">No forms yet</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Create your first form to get started</p>
-              <Link 
-                href="/admin/forms/new" 
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">
+                {loadError ? 'Nothing to show' : 'No forms yet'}
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {loadError ? 'Refresh to try loading your forms again.' : 'Create your first form to get started'}
+              </p>
+              <Link
+                href="/admin/forms/new"
                 className="btn btn-primary inline-flex items-center gap-2 py-2.5 px-4 font-semibold"
               >
                 <PlusCircle size={16} />
