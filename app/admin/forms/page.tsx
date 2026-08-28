@@ -1,7 +1,7 @@
 import { getForms, getSubmissions } from '@/app/actions/forms'
 import { requireUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
-import { ExternalLink, Copy, Pencil, PlusCircle, UserCircle2 } from 'lucide-react'
+import { ExternalLink, ClipboardList, Pencil, PlusCircle, UserCircle2 } from 'lucide-react'
 import FormActions from './FormActions'
 
 export const revalidate = 0
@@ -128,21 +128,23 @@ export default async function FormsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 mt-auto">
-                    <a 
-                      href={formUrl} 
-                      target="_blank" 
+                    <a
+                      href={formUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-xs md:text-sm"
+                      title="Opens the live form respondents fill out, in a new tab"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-xs md:text-sm truncate"
                     >
-                      <ExternalLink size={16} />
-                      <span className="hidden sm:inline">Preview</span>
+                      <ExternalLink size={16} className="flex-shrink-0" />
+                      <span>Open Form</span>
                     </a>
-                    <Link 
+                    <Link
                       href={`/admin/suppliers?form=${form.id}`}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-xs md:text-sm"
+                      title="View the responses submitted to this form"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-xs md:text-sm truncate"
                     >
-                      <Copy size={16} />
-                      <span className="hidden sm:inline">{count}</span>
+                      <ClipboardList size={16} className="flex-shrink-0" />
+                      <span>{count} {count === 1 ? 'Response' : 'Responses'}</span>
                     </Link>
                     <Link 
                       href={`/admin/forms/${form.id}/edit`}

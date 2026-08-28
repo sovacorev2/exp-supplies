@@ -1,7 +1,7 @@
 import { getForms, getSubmissions } from '@/app/actions/forms'
 import { requireUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
-import { ExternalLink, Copy, Pencil, PlusCircle } from 'lucide-react'
+import { ExternalLink, ClipboardList, Pencil, PlusCircle } from 'lucide-react'
 import FormActions from './forms/FormActions'
 
 export const revalidate = 0
@@ -69,14 +69,23 @@ export default async function FormsPage() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <a href={formUrl} target="_blank" className="btn btn-primary text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate">
-                      <ExternalLink size={16} />
+                    <a
+                      href={formUrl}
+                      target="_blank"
+                      title="Opens the live form respondents fill out, in a new tab"
+                      className="btn btn-primary text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate"
+                    >
+                      <ExternalLink size={16} /> Open Form
                     </a>
-                    <Link href={`/admin/suppliers?form=${form.id}`} className="btn text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate">
-                      <Copy size={16} /> <span className="hidden sm:inline">{count}</span>
+                    <Link
+                      href={`/admin/suppliers?form=${form.id}`}
+                      title="View the responses submitted to this form"
+                      className="btn text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate"
+                    >
+                      <ClipboardList size={16} /> {count} {count === 1 ? 'Response' : 'Responses'}
                     </Link>
                     <Link href={`/admin/forms/${form.id}/edit`} className="btn text-xs md:text-sm py-2.5 px-2 text-center font-semibold truncate">
-                      <Pencil size={16} />
+                      <Pencil size={16} /> Edit
                     </Link>
                   </div>
                 </div>
