@@ -11,10 +11,12 @@ export default function SuppliersClient({
   submissions,
   forms,
   defaultFormId,
+  currentUser,
 }: {
   submissions: Submission[]
   forms: Form[]
   defaultFormId?: string
+  currentUser: { id: string; role: string }
 }) {
   const router = useRouter()
   const [search, setSearch]     = useState('')
@@ -474,7 +476,14 @@ export default function SuppliersClient({
         </div>
 
         {/* Detail panel - Fixed position overlay on right */}
-        {selected && (
+        {selected && (() => {
+          const selectedForm = forms.find(f => f.id === selected.form_id)
+          // A collaborator gets full review access to a shared form, but
+          // deleting a response is destructive and permanent — reserved
+          // for the actual owner (or a super-admin), not extended to
+          // "everything" a collaborator can do.
+          const canDelete = currentUser.role === 'admin' || selectedForm?.user_id === currentUser.id
+          return (
           <div className="fixed right-0 top-0 bottom-0 w-full md:w-96 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto flex flex-col shadow-2xl z-50">
             <div className="px-4 md:px-6 py-4 md:py-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 flex-shrink-0">
               <div className="flex-1 min-w-0">
@@ -551,22 +560,24 @@ export default function SuppliersClient({
             </div>
 
             <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 space-y-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(true)
-                  setDeleteError('')
-                }}
-                className="w-full btn bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-2 px-4 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
-              >
-                <Trash2 size={16} />
-                Delete Response
-              </button>
+              {canDelete && (
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(true)
+                    setDeleteError('')
+                  }}
+                  className="w-full btn bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-2 px-4 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Delete Response
+                </button>
+              )}
               <p className="text-xs text-gray-400 dark:text-gray-500 text-center truncate">
                 Response ID: {selected.id.slice(0, 16)}
               </p>
             </div>
           </div>
-        )}
+        )})()}
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (

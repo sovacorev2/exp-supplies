@@ -549,7 +549,14 @@ export async function updateSubmissionStatus(
 
 export async function deleteSubmission(id: string): Promise<void> {
   const currentUser = await requireUser()
-  await getOwnedSubmission(id, currentUser)
+  const row = await getOwnedSubmission(id, currentUser)
+  // Deleting a response is destructive and permanent — reserved for the
+  // actual owner (or a super-admin), not part of what a collaborator's
+  // otherwise-full access extends to. Enforced here, not just hidden in
+  // the UI, so it can't be bypassed by calling the API directly.
+  if (currentUser.role !== 'admin' && row.forms?.user_id !== currentUser.id) {
+    throw new ForbiddenError()
+  }
   await db.delete(submissions).where(eq(submissions.id, id))
 }
 
