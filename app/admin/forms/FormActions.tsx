@@ -189,13 +189,15 @@ export default function FormActions({
             <UserPlus size={13} />
           </button>
         )}
-        <button
-          onClick={() => setDeleteConfirm(true)}
-          className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-red-600 transition-colors"
-          title="Delete form"
-        >
-          <Trash2 size={13} />
-        </button>
+        {canManageAccess && (
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-red-600 transition-colors"
+            title="Delete form"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
 
       {shareOpen && (
