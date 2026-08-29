@@ -154,7 +154,12 @@ export default function AnalyticsClient({
         // itself has actually rendered, so wait on that instead.
         const ready = node?.querySelector('[data-pdf-flatten]')
         if (ready) settledFrames++
-        if (ready && settledFrames > 6) { resolve(node!); return }
+        // A report with many questions means many recharts instances all
+        // needing their own ResizeObserver-triggered layout pass before
+        // they've actually painted real chart content — a short margin
+        // here risked capturing some of them mid-render (blank/malformed
+        // in the exported PDF) on longer reports.
+        if (ready && settledFrames > 15) { resolve(node!); return }
         if (totalFrames > 300) { reject(new Error('Report took too long to render')); return }
         requestAnimationFrame(tick)
       }
@@ -663,7 +668,11 @@ export default function AnalyticsClient({
           off-canvas (not display:none) so recharts can measure a real
           width and paint before window.print()/html2canvas run. */}
       {showReport && selectedForm && typeof document !== 'undefined' && createPortal(
-        <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
+        <div
+          id="report-view"
+          style={{ position: 'fixed', top: 0, left: 0, width: 794, opacity: 0, pointerEvents: 'none' }}
+          aria-hidden="true"
+        >
           <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} dateRangeLabel={dateRangeLabel ?? undefined} />
         </div>,
         document.body
