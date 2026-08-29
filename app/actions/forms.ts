@@ -981,30 +981,36 @@ function summarizeFieldForPrompt(field: FormField, subs: Submission[]): string |
   }
 }
 
-function buildNarrativePrompt(form: { name: string; description: string | null; fields: FormField[] }, subs: Submission[]): string {
+function buildNarrativePrompt(
+  form: { name: string; description: string | null; fields: FormField[] },
+  subs: Submission[],
+  periodLabel?: string
+): string {
   const fieldSummaries = (form.fields ?? [])
     .filter(f => f.section !== 'SECTION_HEADER' && !isPrivateField(f.label))
     .map(f => summarizeFieldForPrompt(f, subs))
     .filter((line): line is string => Boolean(line))
     .join('\n')
 
-  return `You are a data analyst writing a concise, professional report summary for a survey/form titled "${form.name}"${form.description ? ` (${form.description})` : ''}.
+  return `You are a senior FMCG data analyst and chief reporter with years of experience running below-the-line (BTL) consumer activations, product sampling campaigns, sensory panels, and brand-lift studies for major FMCG brands. You are writing the analysis section of a real activation report that a brand manager and trade marketing team will use to decide whether to scale, adjust, or halt this product/activation. They read dozens of these — make this one earn its place: specific, numbers-led, decisive. No generic market-research filler ("further research is recommended," "results were mixed") unless the data genuinely gives you nothing better to say.
 
-Total responses: ${subs.length}
+Form: "${form.name}"${form.description ? ` — ${form.description}` : ''}
+Total responses analyzed: ${subs.length}${periodLabel ? `
+Reporting period: ${periodLabel} only. Write the summary and conclusion strictly about this period — do not imply or describe results for the full activation beyond it.` : ''}
 
 Aggregated results per question, each prefixed with its id in [brackets]:
 ${fieldSummaries}
 
 Write:
-- summary: a 2-4 sentence executive summary of the overall findings.
-- keyInsights: 3-6 short bullet points, each grounded in the actual numbers above — no invented statistics.
+- summary: 4-6 sentences read the way a chief reporter opens a real activation report — participation scale, the standout finding (best/worst-performing sample, strongest sentiment, or clearest behavioral signal), and a one-line bottom-line verdict (e.g. "ready to scale," "needs reformulation before wider rollout," "inconclusive at this sample size") grounded strictly in the numbers above.
+- keyInsights: 3-6 bullet points grounded in the actual numbers above — no invented statistics. At least one or two should connect findings ACROSS different questions where the numbers genuinely support it (e.g. "the sample with the highest flavor preference also led on purchase intent, suggesting flavor is the primary purchase driver here") — that kind of side-by-side observation between two independently-true stats is exactly what's valuable. Do NOT invent a demographic breakdown or cross-tabulation (e.g. "more women preferred X than men") — that data was not given to you, so it would be fabricated.
 - notableQuotes: up to 4 short verbatim excerpts from the open-text answers above that best represent common themes (return an empty array if there are no open-text questions with meaningful answers).
-- recommendations: 2-5 concrete, actionable recommendations based on the findings.
-- conclusion: a short closing paragraph.
+- recommendations: 2-5 concrete actions a trade marketing or brand team could act on directly — sampling volume or placement, formulation/SKU adjustments, messaging emphasis, activation duration or location targeting, what to test next. Not vague advice; each one should follow from a specific finding above.
+- conclusion: a short closing paragraph that commits to an actual verdict on the activation/product, the way a chief reporter would — not a hedge.
 - fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim — do not shorten, paraphrase, or use the question text.
 - textSummaries: for each "(open text, N answers)" question above, write a detailed 3-6 sentence thematic summary of ALL the answers listed for it — group similar feedback together, name specific products/samples respondents mention by name, call out the most frequently requested changes, and note any minority or conflicting opinions. This summary will completely replace showing every individual raw answer in the report, so it needs to be thorough enough that a reader doesn't need to see the raw list — don't just restate 2-3 examples and stop. Skip a text question entirely if it has fewer than 3 answered responses. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim.
 
-Keep the tone professional and specific to this data — no generic filler. Respond only with the JSON described by the schema.`
+Every claim must trace back to a number given above. Respond only with the JSON described by the schema.`
 }
 
 export async function generateReportNarrative(
@@ -1015,7 +1021,12 @@ export async function generateReportNarrative(
   // "Day 1" report during a multi-day activation matches exactly what the
   // charts show, without the server needing to guess a timezone at all.
   rangeStartISO?: string,
-  rangeEndISO?: string
+  rangeEndISO?: string,
+  // Human-readable version of the same range, also computed client-side
+  // (in the admin's own locale) — reused as-is in the prompt rather than
+  // reformatted here, so the server never has to guess a timezone to
+  // render a date string either.
+  periodLabel?: string
 ): Promise<{ ok: true; data: ReportNarrative; cached: boolean } | { ok: false; error: string }> {
   const currentUser = await requireUser()
   const form = await getOwnedForm(formId, currentUser)
@@ -1055,7 +1066,7 @@ export async function generateReportNarrative(
   if (subs.length < 3) return { ok: false, error: 'Not enough responses yet for Smart Insights' }
 
   const fields: FormField[] = typeof form.fields === 'string' ? JSON.parse(form.fields) : form.fields || []
-  const prompt = buildNarrativePrompt({ name: form.name, description: form.description, fields }, subs)
+  const prompt = buildNarrativePrompt({ name: form.name, description: form.description, fields }, subs, isDateScoped ? periodLabel : undefined)
   const result = await callGemini<ReportNarrative>(prompt, NARRATIVE_SCHEMA)
   if (!result.ok) return result
 

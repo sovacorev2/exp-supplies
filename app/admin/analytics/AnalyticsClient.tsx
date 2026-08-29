@@ -175,7 +175,7 @@ export default function AnalyticsClient({
     // regardless of which timezone the server itself runs in.
     const rangeStartISO = dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined
     const rangeEndISO   = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined
-    const result = await generateReportNarrative(selectedForm.id, force, rangeStartISO, rangeEndISO)
+    const result = await generateReportNarrative(selectedForm.id, force, rangeStartISO, rangeEndISO, dateRangeLabel ?? undefined)
     if (result.ok) {
       setNarrative(result.data)
     } else {
@@ -197,7 +197,7 @@ export default function AnalyticsClient({
     try {
       const rangeStartISO = dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined
       const rangeEndISO   = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined
-      const result = await generateReportNarrative(selectedForm.id, true, rangeStartISO, rangeEndISO)
+      const result = await generateReportNarrative(selectedForm.id, true, rangeStartISO, rangeEndISO, dateRangeLabel ?? undefined)
       if (result.ok) {
         setNarrative(result.data)
         setNarrativeNotice('Insights regenerated.')
