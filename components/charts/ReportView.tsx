@@ -175,7 +175,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                   <div className="col-span-2">
                     <ResponsiveContainer width="100%" height={250}>
                       <RechartsPieChart>
-                        <Pie data={genderResult.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }}>
+                        <Pie data={genderResult.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }} isAnimationActive={false}>
                           {genderResult.buckets.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                         </Pie>
                         <Tooltip formatter={(value) => `${value} responses`} />
@@ -255,6 +255,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                           cy="50%"
                           outerRadius={80}
                           label={{ fontSize: 12 }}
+                          isAnimationActive={false}
                         >
                           {result.buckets.map((_, i) => (
                             <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
@@ -293,7 +294,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                     <div className="col-span-2">
                       <ResponsiveContainer width="100%" height={280}>
                         <RechartsPieChart>
-                          <Pie data={result.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }}>
+                          <Pie data={result.buckets} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={{ fontSize: 12 }} isAnimationActive={false}>
                             {result.buckets.map((_, i) => (
                               <Cell key={`cell-${i}`} fill={ratingGradient(result.buckets.length)[i]} />
                             ))}
@@ -348,7 +349,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                         <XAxis dataKey="label" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="value" fill={PRIMARY} />
+                        <Bar dataKey="value" fill={PRIMARY} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -391,6 +392,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                           cy="50%"
                           outerRadius={80}
                           label={{ fontSize: 12 }}
+                          isAnimationActive={false}
                         >
                           <Cell fill={PRIMARY} />
                           <Cell fill={SILVER} />
@@ -448,7 +450,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                           <div className="flex items-center gap-3">
                             <ResponsiveContainer width={110} height={110}>
                               <RechartsPieChart>
-                                <Pie data={r.distribution} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={50}>
+                                <Pie data={r.distribution} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={50} isAnimationActive={false}>
                                   {r.distribution.map((_, i) => <Cell key={i} fill={rowColors[i]} />)}
                                 </Pie>
                               </RechartsPieChart>
