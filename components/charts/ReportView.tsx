@@ -24,7 +24,7 @@ function classifyDemographic(label: string) {
   return DEMOGRAPHIC_PATTERNS.find(p => p.test.test(label))?.key ?? null
 }
 
-export default function ReportView({ form, submissions, narrative }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative }) {
+export default function ReportView({ form, submissions, narrative, dateRangeLabel }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative; dateRangeLabel?: string }) {
   const filteredFields = form.fields?.filter((f: any) => !isPrivateField(f.label)) ?? []
   const filteredSubs = submissions.map(s => ({
     ...s,
@@ -104,7 +104,13 @@ export default function ReportView({ form, submissions, narrative }: { form: For
           
           {/* Title */}
           <h1 className="text-5xl font-bold text-gray-900 mb-4">{form.name}</h1>
-          
+
+          {dateRangeLabel && (
+            <p className="inline-block text-sm font-bold text-red-600 bg-red-50 rounded-full px-4 py-1.5 mb-4">
+              {dateRangeLabel}
+            </p>
+          )}
+
           {/* Description */}
           {form.description && (
             <p className="text-lg text-gray-600 mb-12 max-w-2xl">{form.description}</p>
