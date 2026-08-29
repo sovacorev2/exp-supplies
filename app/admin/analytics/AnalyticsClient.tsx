@@ -15,6 +15,13 @@ import {
 
 const ReportView = dynamic(() => import('@/components/charts/ReportView'), { ssr: false })
 
+function toLocalDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 
 export default function AnalyticsClient({
   allForms,
@@ -45,14 +52,39 @@ export default function AnalyticsClient({
   const [merges, setMerges] = useState<Record<string, FieldValueMerge[]>>({})
   const [regeneratingInsights, setRegeneratingInsights] = useState(false)
 
+  // Plain YYYY-MM-DD, matching what an <input type="date"> gives back and
+  // what an admin means by "today" — their own local calendar day, not
+  // the UTC day a raw ISO-string slice would give (that can be off by one
+  // near midnight for anyone not in UTC, which would silently put a late
+  // -night response from "today" into "yesterday"'s report).
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  // Shown on the report's cover page and used in the exported filename, so
+  // a "Day 1" PDF saved mid-activation is still self-evidently labeled
+  // when it's opened again days later, next to the "all days" one.
+  const dateRangeLabel = useMemo(() => {
+    if (!dateFrom && !dateTo) return null
+    const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    if (dateFrom && dateTo && dateFrom === dateTo) return fmt(dateFrom)
+    if (dateFrom && dateTo) return `${fmt(dateFrom)} – ${fmt(dateTo)}`
+    return dateFrom ? `From ${fmt(dateFrom)}` : `Through ${fmt(dateTo)}`
+  }, [dateFrom, dateTo])
+
   const filtered = useMemo(() => {
     return allSubmissions.filter(s => {
       const text       = Object.values(s.data as any).join(' ').toLowerCase()
       const matchSearch = !search || text.includes(search.toLowerCase())
       const matchForm   = !formId || s.form_id === formId
-      return matchSearch && matchForm
+      let matchDate = true
+      if (dateFrom || dateTo) {
+        const createdDay = toLocalDateKey(new Date(s.created_at))
+        if (dateFrom && createdDay < dateFrom) matchDate = false
+        if (dateTo && createdDay > dateTo) matchDate = false
+      }
+      return matchSearch && matchForm && matchDate
     })
-  }, [allSubmissions, search, formId])
+  }, [allSubmissions, search, formId, dateFrom, dateTo])
 
   const selectedForm = formId ? allForms.find(f => f.id === formId) : null
   const overview     = useMemo(() => computeOverview(filtered), [filtered])
@@ -137,7 +169,13 @@ export default function AnalyticsClient({
   async function prepareNarrative(force = false) {
     if (!includeAiInsights || !selectedForm) { setNarrative(null); return }
     setPreparingMessage('Generating insights…')
-    const result = await generateReportNarrative(selectedForm.id, force)
+    // Resolved to absolute instants here, in the browser, where the
+    // admin's actual local timezone is known — the server just compares
+    // instants, so a "Day 1" narrative always matches the "Day 1" charts
+    // regardless of which timezone the server itself runs in.
+    const rangeStartISO = dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined
+    const rangeEndISO   = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined
+    const result = await generateReportNarrative(selectedForm.id, force, rangeStartISO, rangeEndISO)
     if (result.ok) {
       setNarrative(result.data)
     } else {
@@ -157,7 +195,9 @@ export default function AnalyticsClient({
     if (!selectedForm) return
     setRegeneratingInsights(true)
     try {
-      const result = await generateReportNarrative(selectedForm.id, true)
+      const rangeStartISO = dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined
+      const rangeEndISO   = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined
+      const result = await generateReportNarrative(selectedForm.id, true, rangeStartISO, rangeEndISO)
       if (result.ok) {
         setNarrative(result.data)
         setNarrativeNotice('Insights regenerated.')
@@ -203,7 +243,8 @@ export default function AnalyticsClient({
       // own root — that root's direct children are the actual
       // cover/question/footer blocks getBlocks() paginates on.
       const reportRoot = (node.firstElementChild as HTMLElement) ?? node
-      await exportAnalyticsPDF(reportRoot, selectedForm.name, (done, total) => setPdfProgress({ done, total }))
+      const reportTitle = dateRangeLabel ? `${selectedForm.name} - ${dateRangeLabel}` : selectedForm.name
+      await exportAnalyticsPDF(reportRoot, reportTitle, (done, total) => setPdfProgress({ done, total }))
     } catch (err) {
       console.error('[analytics] Error exporting PDF:', err)
       alert('Failed to export PDF')
@@ -491,26 +532,66 @@ export default function AnalyticsClient({
       </header>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3 flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search responses…"
-            className="w-full pl-8 pr-3 py-2 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
-          />
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search responses…"
+              className="w-full pl-8 pr-3 py-2 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+            />
+          </div>
+          <select
+            value={formId}
+            onChange={e => setFormId(e.target.value)}
+            className="flex-1 sm:max-w-xs py-2 px-3 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+          >
+            <option value="">All forms</option>
+            {allForms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <div className="flex-shrink-0 text-[13px] font-bold px-4 py-2 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 self-center whitespace-nowrap">
+            {filtered.length} shown
+          </div>
         </div>
-        <select
-          value={formId}
-          onChange={e => setFormId(e.target.value)}
-          className="flex-1 sm:max-w-xs py-2 px-3 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
-        >
-          <option value="">All forms</option>
-          {allForms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
-        <div className="flex-shrink-0 text-[13px] font-bold px-4 py-2 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 self-center whitespace-nowrap">
-          {filtered.length} shown
+
+        {/* Date range — for a multi-day activation, scopes the dashboard,
+            printed report, Smart Insights and CSV export to just the
+            day(s) picked here (they all read from `filtered`/`mergedSubs`
+            below), so a "Day 1" report and a final "all days" report are
+            just this filter set differently, not a separate feature. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider">Date range</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            max={dateTo || undefined}
+            className="py-1.5 px-2.5 text-[13px] border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+          />
+          <span className="text-gray-400 text-sm">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            min={dateFrom || undefined}
+            className="py-1.5 px-2.5 text-[13px] border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+          />
+          <button
+            onClick={() => { const today = toLocalDateKey(new Date()); setDateFrom(today); setDateTo(today) }}
+            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-300 hover:text-brand-600 transition-colors"
+          >
+            Today
+          </button>
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo('') }}
+              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+            >
+              Clear (show all days)
+            </button>
+          )}
         </div>
       </div>
 
@@ -583,7 +664,7 @@ export default function AnalyticsClient({
           width and paint before window.print()/html2canvas run. */}
       {showReport && selectedForm && typeof document !== 'undefined' && createPortal(
         <div id="report-view" style={{ position: 'fixed', top: 0, left: '-10000px', width: 794 }}>
-          <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} />
+          <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} dateRangeLabel={dateRangeLabel ?? undefined} />
         </div>,
         document.body
       )}

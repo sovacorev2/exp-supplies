@@ -1009,26 +1009,46 @@ Keep the tone professional and specific to this data — no generic filler. Resp
 
 export async function generateReportNarrative(
   formId: string,
-  force = false
+  force = false,
+  // Absolute instants (ISO strings), not plain dates — resolved client-side
+  // from the admin's own local calendar day before being sent here, so a
+  // "Day 1" report during a multi-day activation matches exactly what the
+  // charts show, without the server needing to guess a timezone at all.
+  rangeStartISO?: string,
+  rangeEndISO?: string
 ): Promise<{ ok: true; data: ReportNarrative; cached: boolean } | { ok: false; error: string }> {
   const currentUser = await requireUser()
   const form = await getOwnedForm(formId, currentUser)
+  const isDateScoped = Boolean(rangeStartISO || rangeEndISO)
 
   const subRows = await db
     .select()
     .from(submissions)
     .where(and(eq(submissions.form_id, formId), ne(submissions.status, 'draft')))
-  const parsedSubs: Submission[] = subRows.map((s: any) => ({
+  let parsedSubs: Submission[] = subRows.map((s: any) => ({
     ...s,
     data: typeof s.data === 'string' ? JSON.parse(s.data) : s.data || {},
   }))
+  if (isDateScoped) {
+    parsedSubs = parsedSubs.filter(s => {
+      const created = new Date(s.created_at).toISOString()
+      if (rangeStartISO && created < rangeStartISO) return false
+      if (rangeEndISO && created > rangeEndISO) return false
+      return true
+    })
+  }
   const merges = await fetchMergesByField(formId)
   const subs = applyFieldMerges(parsedSubs, merges)
 
-  const existing = await db.select().from(aiReportNarratives).where(eq(aiReportNarratives.form_id, formId)).limit(1)
+  // A date-scoped request (a single day's report mid-activation) is never
+  // read from or written to the whole-form cache below — caching it under
+  // the same row would either serve a stale all-time narrative for a
+  // single-day request, or worse, corrupt the all-time cache with a
+  // single day's narrative the next time someone views without a filter.
+  const existing = isDateScoped ? [] : await db.select().from(aiReportNarratives).where(eq(aiReportNarratives.form_id, formId)).limit(1)
   const cached = existing[0]
 
-  if (!force && cached && cached.submission_count === subs.length) {
+  if (!isDateScoped && !force && cached && cached.submission_count === subs.length) {
     return { ok: true, data: cached.narrative as ReportNarrative, cached: true }
   }
 
@@ -1039,13 +1059,15 @@ export async function generateReportNarrative(
   const result = await callGemini<ReportNarrative>(prompt, NARRATIVE_SCHEMA)
   if (!result.ok) return result
 
-  if (cached) {
-    await db
-      .update(aiReportNarratives)
-      .set({ submission_count: subs.length, narrative: result.data, generated_at: new Date() })
-      .where(eq(aiReportNarratives.form_id, formId))
-  } else {
-    await db.insert(aiReportNarratives).values({ form_id: formId, submission_count: subs.length, narrative: result.data })
+  if (!isDateScoped) {
+    if (cached) {
+      await db
+        .update(aiReportNarratives)
+        .set({ submission_count: subs.length, narrative: result.data, generated_at: new Date() })
+        .where(eq(aiReportNarratives.form_id, formId))
+    } else {
+      await db.insert(aiReportNarratives).values({ form_id: formId, submission_count: subs.length, narrative: result.data })
+    }
   }
 
   return { ok: true, data: result.data, cached: false }
