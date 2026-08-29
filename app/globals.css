@@ -95,17 +95,21 @@
     display: none !important;
   }
 
-  /* On screen #report-view sits off-canvas (position: fixed, negative
-     left) rather than display:none, so recharts can actually measure a
-     real width and paint its charts before window.print() fires — a
-     display:none ancestor reports 0×0 to ResizeObserver and recharts
-     renders blank. Printing pulls it back into normal document flow so
-     it paginates across pages instead of being clipped to one. */
+  /* On screen #report-view sits at normal coordinates but invisible via
+     opacity/pointer-events (not display:none, not an extreme negative
+     offset), so recharts can actually measure a real width and paint its
+     charts, and html2canvas can reliably rasterize them for Download PDF
+     — SVG charts positioned thousands of pixels off-screen have been seen
+     to capture blank/malformed in html2canvas, seemingly because it
+     doesn't always resolve coordinates correctly at extreme offsets.
+     Printing pulls it back into normal, visible document flow so it
+     paginates across pages instead of being clipped to one. */
   #report-view {
     display: block !important;
     position: static !important;
     top: auto !important;
     left: auto !important;
+    opacity: 1 !important;
     background: white !important;
     color: black !important;
     margin: 0 !important;

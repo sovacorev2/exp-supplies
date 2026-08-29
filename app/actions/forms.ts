@@ -1010,7 +1010,26 @@ Write:
 - fieldInsights: for each question above that has a genuinely noteworthy result (a clear winner/loser, a surprising split, a strong consensus, a standout average) write ONE punchy sentence of commentary that cites the actual numbers, e.g. "Appearance scored highest at 4.6/5, with 80% of respondents rating it 4 or 5." Skip questions with nothing worth saying — do not write filler for every single question. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim — do not shorten, paraphrase, or use the question text.
 - textSummaries: for each "(open text, N answers)" question above, write a detailed 3-6 sentence thematic summary of ALL the answers listed for it — group similar feedback together, name specific products/samples respondents mention by name, call out the most frequently requested changes, and note any minority or conflicting opinions. This summary will completely replace showing every individual raw answer in the report, so it needs to be thorough enough that a reader doesn't need to see the raw list — don't just restate 2-3 examples and stop. Skip a text question entirely if it has fewer than 3 answered responses. Set fieldId to the exact id shown in that question's [brackets] above, copied verbatim.
 
-Every claim must trace back to a number given above. Respond only with the JSON described by the schema.`
+Every claim must trace back to a number given above. Never use an em dash (—) anywhere in your writing — use a comma, period, colon, or parentheses instead. Respond only with the JSON described by the schema.`
+}
+
+// Belt-and-suspenders for a deliberate, twice-stated user preference — the
+// prompt above already asks Gemini not to use em dashes, but instruction-
+// following isn't guaranteed, so every string in the narrative gets this
+// pass regardless of whether the model actually complied.
+function stripEmDashes<T>(value: T): T {
+  if (typeof value === 'string') {
+    return value.replace(/\s*—\s*/g, ', ') as unknown as T
+  }
+  if (Array.isArray(value)) {
+    return value.map(v => stripEmDashes(v)) as unknown as T
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) out[k] = stripEmDashes(v)
+    return out as T
+  }
+  return value
 }
 
 export async function generateReportNarrative(
@@ -1069,17 +1088,21 @@ export async function generateReportNarrative(
   const prompt = buildNarrativePrompt({ name: form.name, description: form.description, fields }, subs, isDateScoped ? periodLabel : undefined)
   const result = await callGemini<ReportNarrative>(prompt, NARRATIVE_SCHEMA)
   if (!result.ok) return result
+  // The prompt asks Gemini to never use an em dash, but instruction-
+  // following isn't guaranteed — this is a deliberate, twice-stated user
+  // preference, so it's enforced here too rather than trusted to the model.
+  const narrative = stripEmDashes(result.data)
 
   if (!isDateScoped) {
     if (cached) {
       await db
         .update(aiReportNarratives)
-        .set({ submission_count: subs.length, narrative: result.data, generated_at: new Date() })
+        .set({ submission_count: subs.length, narrative, generated_at: new Date() })
         .where(eq(aiReportNarratives.form_id, formId))
     } else {
-      await db.insert(aiReportNarratives).values({ form_id: formId, submission_count: subs.length, narrative: result.data })
+      await db.insert(aiReportNarratives).values({ form_id: formId, submission_count: subs.length, narrative })
     }
   }
 
-  return { ok: true, data: result.data, cached: false }
+  return { ok: true, data: narrative, cached: false }
 }
