@@ -67,7 +67,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
       <div className="mt-4 flex gap-3 items-start bg-brand-50 border border-brand-100 rounded-lg p-4">
         <span className="text-brand-600 font-bold text-lg leading-none flex-shrink-0">✦</span>
         <p className="text-sm text-gray-800 m-0">
-          <span className="font-semibold text-brand-700">Analyst take: </span>{insight}
+          <span className="font-semibold text-brand-700">Key takeaway: </span>{insight}
         </p>
       </div>
     )
@@ -471,7 +471,7 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
               )}
 
               {/* Text fields with a textSummary already got a full LLM
-                  synthesis above — a second "Analyst take" blurb on the
+                  synthesis above — a second "Key takeaway" blurb on the
                   same field would just repeat itself. */}
               {!textSummary && <AnalystTake insight={fieldInsight?.insight} />}
             </div>

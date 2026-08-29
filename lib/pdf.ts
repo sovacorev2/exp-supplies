@@ -52,18 +52,23 @@ export async function exportAnalyticsPDF(
   // Capturing every block via Promise.all fired 15-20 synchronous,
   // CPU-heavy html2canvas renders back to back with no gap between them —
   // the tab looked frozen for a long stretch with zero feedback that
-  // anything was happening. Doing them one at a time and yielding a frame
-  // after each lets the browser actually paint a progress update and stay
-  // responsive, at the cost of the whole export taking a little longer.
+  // anything was happening. Doing them one at a time keeps it responsive;
+  // yielding every few blocks rather than every single one still lets the
+  // progress bar update smoothly without adding a full frame of delay
+  // per block on reports with many questions.
   const canvases: HTMLCanvasElement[] = []
   for (let i = 0; i < blocks.length; i++) {
     canvases.push(await html2canvas(blocks[i], {
       backgroundColor: '#ffffff',
-      scale: 2,
+      // scale 2 (retina-sharp) roughly quadruples the pixels to render and
+      // encode per block over scale 1 — 1.5 is still crisp on screen and
+      // in print while cutting that work by ~44%, the single biggest lever
+      // on how long a many-question report takes to export.
+      scale: 1.5,
       useCORS: true,
     }))
     onProgress?.(i + 1, blocks.length)
-    await new Promise(resolve => requestAnimationFrame(resolve))
+    if (i % 3 === 2) await new Promise(resolve => requestAnimationFrame(resolve))
   }
 
   const pdf = new jsPDF('p', 'pt', 'a4')
@@ -104,7 +109,11 @@ export async function exportAnalyticsPDF(
         const spaceLeftPt   = pageHeight - margin - cursorY
         const sliceHeightPt = Math.min(imgHeight - offsetPt, spaceLeftPt)
         const slice          = cropCanvas(canvas, offsetPt * pxPerPt, sliceHeightPt * pxPerPt)
-        pdf.addImage(slice.toDataURL('image/png'), 'PNG', margin, cursorY, contentWidth, sliceHeightPt)
+        // JPEG, not PNG — these blocks are already flattened onto a solid
+        // white background (no transparency to lose), and JPEG encodes
+        // markedly faster and smaller for the same pixel count, which
+        // matters when there are 15-20+ of these per report.
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentWidth, sliceHeightPt)
         cursorY  += sliceHeightPt
         offsetPt += sliceHeightPt
         if (offsetPt < imgHeight) {
@@ -118,7 +127,7 @@ export async function exportAnalyticsPDF(
         pdf.addPage()
         cursorY = margin
       }
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, cursorY, contentWidth, imgHeight)
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentWidth, imgHeight)
       cursorY += imgHeight + gap
     }
   }
