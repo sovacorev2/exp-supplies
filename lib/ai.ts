@@ -37,9 +37,27 @@ export async function callGemini<T>(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json', responseSchema },
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema,
+              // Without an explicit ceiling this defaults to whatever the
+              // model itself picks, which for a form with several
+              // open-text questions (each summarized with up to 30 sample
+              // answers) plus this model's own "thinking" tokens can run
+              // long enough to get cut off mid-JSON — a real request that
+              // failed, not a bad key, but rotating keys for it just wastes
+              // the whole pool retrying the same doomed prompt. Generous
+              // enough that a rich, many-question narrative always fits.
+              maxOutputTokens: 8192,
+            },
           }),
-          signal: AbortSignal.timeout(20_000),
+          // 45s, not 20s — a large form (many open-text questions, each
+          // summarized with up to 30 sample answers) genuinely takes this
+          // model longer to reason through and write a full narrative for;
+          // the old, tighter timeout could abort a request that was going
+          // to succeed, then repeat that same abort across every key in
+          // the pool before finally giving up.
+          signal: AbortSignal.timeout(45_000),
         }
       )
 
@@ -50,7 +68,15 @@ export async function callGemini<T>(
       }
 
       const json = await res.json()
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text
+      const candidate = json.candidates?.[0]
+      const text = candidate?.content?.parts?.[0]?.text
+      // A hard truncation (finishReason MAX_TOKENS) produces the same
+      // "can't parse this" symptom as a genuine format problem below, but
+      // is worth surfacing distinctly — the fix for one is a bigger token
+      // budget, not a prompt/schema change.
+      if (candidate?.finishReason === 'MAX_TOKENS') {
+        return { ok: false, error: 'Gemini response was cut off before completing (ran out of output tokens)' }
+      }
       if (!text) { lastError = 'Gemini returned an empty response'; continue }
       try {
         return { ok: true, data: JSON.parse(text) }

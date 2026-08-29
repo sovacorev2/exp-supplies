@@ -3,6 +3,11 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
+// Chart/text blocks compress well below the lossless PNG size at this
+// quality without visible artifacting — kept as one constant since both
+// pagination branches below embed images the same way.
+const JPEG_QUALITY = 0.75
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -60,11 +65,12 @@ export async function exportAnalyticsPDF(
   for (let i = 0; i < blocks.length; i++) {
     canvases.push(await html2canvas(blocks[i], {
       backgroundColor: '#ffffff',
-      // scale 2 (retina-sharp) roughly quadruples the pixels to render and
-      // encode per block over scale 1 — 1.5 is still crisp on screen and
-      // in print while cutting that work by ~44%, the single biggest lever
-      // on how long a many-question report takes to export.
-      scale: 1.5,
+      // scale 2 (retina-sharp) roughly quadruples the pixels to render,
+      // encode, and embed per block over scale 1 — 1.25 is still clearly
+      // readable on screen and in standard print while cutting that work
+      // (and the final file size) by well over half, the biggest lever on
+      // both export time and how large the downloaded PDF ends up.
+      scale: 1.25,
       useCORS: true,
     }))
     onProgress?.(i + 1, blocks.length)
@@ -113,7 +119,7 @@ export async function exportAnalyticsPDF(
         // white background (no transparency to lose), and JPEG encodes
         // markedly faster and smaller for the same pixel count, which
         // matters when there are 15-20+ of these per report.
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentWidth, sliceHeightPt)
+        pdf.addImage(slice.toDataURL('image/jpeg', JPEG_QUALITY), 'JPEG', margin, cursorY, contentWidth, sliceHeightPt)
         cursorY  += sliceHeightPt
         offsetPt += sliceHeightPt
         if (offsetPt < imgHeight) {
@@ -127,7 +133,7 @@ export async function exportAnalyticsPDF(
         pdf.addPage()
         cursorY = margin
       }
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentWidth, imgHeight)
+      pdf.addImage(canvas.toDataURL('image/jpeg', JPEG_QUALITY), 'JPEG', margin, cursorY, contentWidth, imgHeight)
       cursorY += imgHeight + gap
     }
   }
