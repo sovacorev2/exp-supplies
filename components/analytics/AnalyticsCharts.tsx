@@ -6,8 +6,8 @@ import {
   PieChart, Pie, Legend,
 } from 'recharts'
 import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
-import { ratingGradient } from '@/lib/analytics'
-import type { FormField, FieldValueMerge } from '@/app/actions/forms'
+import { ratingGradient, analyzeField } from '@/lib/analytics'
+import type { FormField, FieldValueMerge, Submission } from '@/app/actions/forms'
 import { mergeFieldValues, unmergeFieldValue } from '@/app/actions/forms'
 
 // ── colour palette — built from the Exp brand red/silver scale (see
@@ -187,6 +187,97 @@ export function ChartCard({ title, meta, children, tableRows, tableValueHeader }
           </tbody>
         </table>
       ) : children}
+    </div>
+  )
+}
+
+// ── Compare-by-field panel ───────────────────────────────────────────────────
+// Supplementary summary shown above the normal per-field breakdown when the
+// admin picks a "Compare by" field (e.g. Team: Rig/Van) — not a replacement
+// for it. Every field still gets its full chart in the untouched loop below;
+// this panel only adds a side-by-side view for the field kinds where that's
+// genuinely readable (categorical, boolean, numeric, rating).
+export function ComparisonPanel({ field, fields, segments, unanswered }: {
+  field: FormField
+  fields: FormField[]
+  segments: { label: string; subs: Submission[] }[]
+  unanswered: Submission[]
+}) {
+  const total = segments.reduce((s, seg) => s + seg.subs.length, 0) + unanswered.length
+  const otherFields = fields.filter(f => f.id !== field.id && f.section !== 'SECTION_HEADER')
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border-2 border-brand-200 dark:border-brand-800 rounded-xl p-5 shadow-sm space-y-5">
+      <div>
+        <h3 className="text-[14px] font-bold text-gray-900 dark:text-white mb-0.5">Comparing by &ldquo;{field.label}&rdquo;</h3>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {segments.map((seg, i) => (
+            <span key={seg.label} className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full" style={{ background: `${color(i, seg.label)}1a`, color: color(i, seg.label) }}>
+              {seg.label} — {seg.subs.length} ({total > 0 ? Math.round((seg.subs.length / total) * 100) : 0}%)
+            </span>
+          ))}
+        </div>
+        {unanswered.length > 0 && (
+          <p className="text-[12px] text-gray-400 mt-2">{unanswered.length} response{unanswered.length !== 1 ? 's' : ''} had no {field.label.toLowerCase()} selected, excluded from this comparison.</p>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        {otherFields.map(f => {
+          const results = segments.map(seg => ({ seg, result: analyzeField(f, seg.subs, true) }))
+          const gridCols = `repeat(${segments.length}, minmax(0, 1fr))`
+
+          if (results.every(r => r.result.kind === 'categorical' || r.result.kind === 'boolean')) {
+            return (
+              <div key={f.id} className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label}</p>
+                <div className="grid gap-4" style={{ gridTemplateColumns: gridCols }}>
+                  {results.map(({ seg, result }) => {
+                    const buckets: Bucket[] = result.kind === 'boolean'
+                      ? [{ label: 'Yes', value: result.yes }, { label: 'No', value: result.no }]
+                      : result.kind === 'categorical' ? result.buckets : []
+                    return (
+                      <div key={seg.label}>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">{seg.label}</p>
+                        <BarList data={buckets} highlightMax />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          }
+
+          if (results.every(r => r.result.kind === 'numeric' || r.result.kind === 'rating')) {
+            return (
+              <div key={f.id} className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label}</p>
+                <div className="grid gap-3" style={{ gridTemplateColumns: gridCols }}>
+                  {results.map(({ seg, result }) => {
+                    const value = result.kind === 'numeric' ? result.avg.toFixed(1) : result.kind === 'rating' ? `${result.avg.toFixed(1)} / ${result.max}` : '—'
+                    const answered = result.kind === 'numeric' || result.kind === 'rating' ? result.answered : 0
+                    return <StatTile key={seg.label} label={seg.label} value={value} sub={`${answered} answered`} />
+                  })}
+                </div>
+              </div>
+            )
+          }
+
+          // text / multi / date / matrix — comparing these at a glance isn't
+          // meaningful; each still gets its full chart in the loop below.
+          return (
+            <div key={f.id} className="border-t border-gray-100 dark:border-gray-700 pt-4">
+              <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label}</p>
+              <div className="grid gap-3" style={{ gridTemplateColumns: gridCols }}>
+                {results.map(({ seg, result }) => {
+                  const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
+                  return <StatTile key={seg.label} label={seg.label} value={answered} sub={`of ${seg.subs.length}`} />
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

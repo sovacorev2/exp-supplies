@@ -294,6 +294,48 @@ export function computeRatingRadar(fields: FormField[], subs: Submission[]): Rad
   return axes.some(a => a.answered > 0) ? axes : null
 }
 
+// Splits submissions by their answer to one field, e.g. a "Team" field
+// with "Rig"/"Van" values, so every other question can be compared side by
+// side per group. Answers arrive here already applyFieldMerges-canonicalized
+// (see AnalyticsClient.tsx), and select/autocomplete answers are closed-list
+// values chosen from the field's own options in the first place — so a
+// plain trimmed exact match is the correct grouping, no fuzzy normalization
+// needed the way free-text categorical fields sometimes require.
+export function splitBySegment(field: FormField, subs: Submission[]): {
+  segments: { label: string; subs: Submission[] }[]
+  unanswered: Submission[]
+} {
+  const byValue = new Map<string, Submission[]>()
+  const unanswered: Submission[] = []
+  subs.forEach(s => {
+    const raw = (s.data as any)[field.label]
+    const v = typeof raw === 'string' ? raw.trim() : ''
+    if (!v) { unanswered.push(s); return }
+    const arr = byValue.get(v) ?? []
+    arr.push(s)
+    byValue.set(v, arr)
+  })
+  const segments = Array.from(byValue.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([label, segSubs]) => ({ label, subs: segSubs }))
+  return { segments, unanswered }
+}
+
+// Which fields are worth offering as a "Compare by" axis. Restricted to
+// select/autocomplete — closed-list, human-readable values with no
+// membership ambiguity (unlike multiselect, where one response can belong
+// to several groups at once) and no raw-value special-casing needed (unlike
+// checkbox, which stores 'true'/'false'). Capped at 6 distinct values: past
+// that a side-by-side comparison stops being "clear at a glance" and is
+// just the normal single breakdown again.
+export function getComparableFields(fields: FormField[], subs: Submission[]): FormField[] {
+  return fields.filter(f => {
+    if (f.type !== 'select' && f.type !== 'autocomplete') return false
+    const { segments } = splitBySegment(f, subs)
+    return segments.length >= 2 && segments.length <= 6
+  })
+}
+
 export function computeOverview(subs: Submission[]): OverviewData {
   const formCounts = new Map<string, number>()
   subs.forEach(s => {
