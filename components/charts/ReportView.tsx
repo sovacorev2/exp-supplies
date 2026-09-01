@@ -1,7 +1,7 @@
 'use client'
 
 import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
-import { analyzeField, isPrivateField, ratingGradient } from '@/lib/analytics'
+import { analyzeField, isPrivateField, ratingGradient, splitBySegment } from '@/lib/analytics'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 // Built from the Exp brand red/silver scale (tailwind.config.js) rather
@@ -24,7 +24,7 @@ function classifyDemographic(label: string) {
   return DEMOGRAPHIC_PATTERNS.find(p => p.test.test(label))?.key ?? null
 }
 
-export default function ReportView({ form, submissions, narrative, dateRangeLabel }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative; dateRangeLabel?: string }) {
+export default function ReportView({ form, submissions, narrative, dateRangeLabel, compareFieldId }: { form: Form; submissions: Submission[]; narrative?: ReportNarrative; dateRangeLabel?: string; compareFieldId?: string }) {
   const filteredFields = form.fields?.filter((f: any) => !isPrivateField(f.label)) ?? []
   const filteredSubs = submissions.map(s => ({
     ...s,
@@ -32,6 +32,13 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
       Object.entries(s.data as any).filter(([k]) => !isPrivateField(k))
     ) as Record<string, string>,
   })) as Submission[]
+
+  // Same "Compare by" split shown on the live dashboard, reproduced here so
+  // a downloaded/printed report carries the same Rig-vs-Van (or whatever
+  // field was picked) comparison the admin was looking at on screen.
+  const compareField = compareFieldId ? filteredFields.find((f: any) => f.id === compareFieldId) : null
+  const comparison = compareField ? splitBySegment(compareField, filteredSubs) : null
+  const comparisonFields = compareField ? filteredFields.filter((f: any) => f.id !== compareField.id && f.section !== 'SECTION_HEADER') : []
 
   const demographicFields = filteredFields.filter((f: any) => f.section !== 'SECTION_HEADER' && classifyDemographic(f.label))
   const demographicIds    = new Set(demographicFields.map((f: any) => f.id))
@@ -210,6 +217,70 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                 <AnalystTake insight={findInsight(locationField?.id)?.insight} />
               </div>
             )}
+          </div>
+        )}
+
+        {compareField && comparison && (
+          <div className="w-full p-12 border-b border-gray-200 page-break-avoid report-section">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Comparing by &ldquo;{compareField.label}&rdquo;</h2>
+            <div className="flex flex-wrap gap-3 mb-2">
+              {comparison.segments.map(seg => {
+                const total = comparison.segments.reduce((s, x) => s + x.subs.length, 0) + comparison.unanswered.length
+                return (
+                  <span key={seg.label} className="text-sm font-bold text-red-600 bg-red-50 rounded-full px-4 py-1.5">
+                    {seg.label} — {seg.subs.length} ({total > 0 ? Math.round((seg.subs.length / total) * 100) : 0}%)
+                  </span>
+                )
+              })}
+            </div>
+            {comparison.unanswered.length > 0 && (
+              <p className="text-xs text-gray-500 mb-6">{comparison.unanswered.length} response{comparison.unanswered.length !== 1 ? 's' : ''} had no {compareField.label.toLowerCase()} selected, excluded from this comparison.</p>
+            )}
+
+            <div className="space-y-6 mt-6">
+              {comparisonFields.map((f: any) => {
+                const results = comparison.segments.map(seg => ({ seg, result: analyzeField(f, seg.subs, true) }))
+                const isCategorical = results.every(r => r.result.kind === 'categorical' || r.result.kind === 'boolean')
+                const isNumeric = results.every(r => r.result.kind === 'numeric' || r.result.kind === 'rating')
+                return (
+                  <div key={f.id}>
+                    <p className="text-sm font-semibold text-gray-900 mb-3">{f.label}</p>
+                    <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${comparison!.segments.length}, minmax(0, 1fr))` }}>
+                      {results.map(({ seg, result }) => {
+                        if (isCategorical) {
+                          const buckets = result.kind === 'boolean' ? [{ label: 'Yes', value: result.yes }, { label: 'No', value: result.no }] : result.kind === 'categorical' ? result.buckets : []
+                          return (
+                            <div key={seg.label}>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">{seg.label}</p>
+                              <ProportionalBars buckets={buckets} />
+                            </div>
+                          )
+                        }
+                        if (isNumeric) {
+                          const value = result.kind === 'numeric' ? result.avg.toFixed(1) : result.kind === 'rating' ? `${result.avg.toFixed(1)} / ${result.max}` : '—'
+                          const numAnswered = result.kind === 'numeric' || result.kind === 'rating' ? result.answered : 0
+                          return (
+                            <div key={seg.label} className="bg-gray-50 p-3 rounded">
+                              <p className="text-xs text-gray-600">{seg.label}</p>
+                              <p className="text-2xl font-bold text-gray-900">{value}</p>
+                              <p className="text-xs text-gray-500 mt-1">{numAnswered} answered</p>
+                            </div>
+                          )
+                        }
+                        const answered = 'answered' in result ? result.answered : ('yes' in result ? result.yes + result.no : result.respondents ?? 0)
+                        return (
+                          <div key={seg.label} className="bg-gray-50 p-3 rounded">
+                            <p className="text-xs text-gray-600">{seg.label}</p>
+                            <p className="text-2xl font-bold text-gray-900">{answered}</p>
+                            <p className="text-xs text-gray-500 mt-1">of {seg.subs.length}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 

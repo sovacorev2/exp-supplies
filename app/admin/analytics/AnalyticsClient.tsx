@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Form, Submission, ReportNarrative, FieldValueMerge } from '@/app/actions/forms'
 import { generateReportNarrative, getFieldValueMerges } from '@/app/actions/forms'
-import { analyzeField, computeOverview, computeRatingRadar, exportCSV, formatAnswerPreview, applyFieldMerges } from '@/lib/analytics'
+import { analyzeField, computeOverview, computeRatingRadar, exportCSV, formatAnswerPreview, applyFieldMerges, getComparableFields, splitBySegment } from '@/lib/analytics'
 import { exportAnalyticsPDF } from '@/lib/pdf'
 import {
-  StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart,
+  StatTile, BarList, DonutChart, ChartCard, FieldCard, RadarChart, ComparisonPanel,
 } from '@/components/analytics/AnalyticsCharts'
 
 const ReportView = dynamic(() => import('@/components/charts/ReportView'), { ssr: false })
@@ -59,6 +59,12 @@ export default function AnalyticsClient({
   // -night response from "today" into "yesterday"'s report).
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
+  // Which field to split every other question's breakdown by (e.g. a
+  // "Team" field with Rig/Van values) — reset whenever the selected form
+  // changes, since eligible fields are specific to that form.
+  const [compareFieldId, setCompareFieldId] = useState('')
+  useEffect(() => { setCompareFieldId('') }, [formId])
 
   // Shown on the report's cover page and used in the exported filename, so
   // a "Day 1" PDF saved mid-activation is still self-evidently labeled
@@ -343,6 +349,9 @@ export default function AnalyticsClient({
   function FormAnalyticsView({ form }: { form: Form }) {
     const formSubs  = mergedSubs.filter(s => s.form_id === form.id)
     const radarAxes = computeRatingRadar(form.fields, formSubs)
+    const comparableFields = getComparableFields(form.fields, formSubs)
+    const compareField = comparableFields.find(f => f.id === compareFieldId) ?? null
+    const comparison = compareField ? splitBySegment(compareField, formSubs) : null
 
     if (!formSubs.length) {
       return (
@@ -373,6 +382,24 @@ export default function AnalyticsClient({
           >
             <RadarChart axes={radarAxes} />
           </ChartCard>
+        )}
+
+        {comparableFields.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider">Compare by</span>
+            <select
+              value={compareFieldId}
+              onChange={e => setCompareFieldId(e.target.value)}
+              className="py-1.5 px-2.5 text-[13px] border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none transition-colors"
+            >
+              <option value="">None (combined total)</option>
+              {comparableFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </div>
+        )}
+
+        {compareField && comparison && (
+          <ComparisonPanel field={compareField} fields={form.fields} segments={comparison.segments} unanswered={comparison.unanswered} />
         )}
 
         <div className="space-y-4">
@@ -673,7 +700,7 @@ export default function AnalyticsClient({
           style={{ position: 'fixed', top: 0, left: 0, width: 794, opacity: 0, pointerEvents: 'none' }}
           aria-hidden="true"
         >
-          <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} dateRangeLabel={dateRangeLabel ?? undefined} />
+          <ReportView form={selectedForm} submissions={mergedSubs} narrative={narrative ?? undefined} dateRangeLabel={dateRangeLabel ?? undefined} compareFieldId={compareFieldId || undefined} />
         </div>,
         document.body
       )}
