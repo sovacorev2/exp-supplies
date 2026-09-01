@@ -1,7 +1,7 @@
 'use client'
 
 import type { Form, Submission, ReportNarrative } from '@/app/actions/forms'
-import { analyzeField, isPrivateField, ratingGradient, splitBySegment } from '@/lib/analytics'
+import { analyzeField, isPrivateField, ratingGradient, splitBySegment, formatCount } from '@/lib/analytics'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 // Built from the Exp brand red/silver scale (tailwind.config.js) rather
@@ -241,10 +241,19 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
               {comparisonFields.map((f: any) => {
                 const results = comparison.segments.map(seg => ({ seg, result: analyzeField(f, seg.subs, true) }))
                 const isCategorical = results.every(r => r.result.kind === 'categorical' || r.result.kind === 'boolean')
-                const isNumeric = results.every(r => r.result.kind === 'numeric' || r.result.kind === 'rating')
+                // A count field (pegs issued, customers engaged) measures
+                // output — the total is the performance number, an average
+                // per submission just muddies it with how many reports a
+                // team happened to file. A rating field is the opposite: its
+                // scale is fixed, so the average score is the only number
+                // that means anything, summing 1-5 ratings is nonsense.
+                const isCount  = results.every(r => r.result.kind === 'numeric')
+                const isRating = results.every(r => r.result.kind === 'rating')
                 return (
                   <div key={f.id}>
-                    <p className="text-sm font-semibold text-gray-900 mb-3">{f.label}</p>
+                    <p className="text-sm font-semibold text-gray-900 mb-3">
+                      {f.label}{isCount && <span className="font-normal text-gray-500"> (total)</span>}{isRating && <span className="font-normal text-gray-500"> (average)</span>}
+                    </p>
                     <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${comparison!.segments.length}, minmax(0, 1fr))` }}>
                       {results.map(({ seg, result }) => {
                         if (isCategorical) {
@@ -256,14 +265,21 @@ export default function ReportView({ form, submissions, narrative, dateRangeLabe
                             </div>
                           )
                         }
-                        if (isNumeric) {
-                          const value = result.kind === 'numeric' ? result.avg.toFixed(1) : result.kind === 'rating' ? `${result.avg.toFixed(1)} / ${result.max}` : '—'
-                          const numAnswered = result.kind === 'numeric' || result.kind === 'rating' ? result.answered : 0
+                        if (isCount && result.kind === 'numeric') {
                           return (
                             <div key={seg.label} className="bg-gray-50 p-3 rounded">
                               <p className="text-xs text-gray-600">{seg.label}</p>
-                              <p className="text-2xl font-bold text-gray-900">{value}</p>
-                              <p className="text-xs text-gray-500 mt-1">{numAnswered} answered</p>
+                              <p className="text-2xl font-bold text-gray-900">{formatCount(result.sum)}</p>
+                              <p className="text-xs text-gray-500 mt-1">avg {result.avg.toFixed(1)} · {result.answered} answered</p>
+                            </div>
+                          )
+                        }
+                        if (isRating && result.kind === 'rating') {
+                          return (
+                            <div key={seg.label} className="bg-gray-50 p-3 rounded">
+                              <p className="text-xs text-gray-600">{seg.label}</p>
+                              <p className="text-2xl font-bold text-gray-900">{result.avg.toFixed(1)} / {result.max}</p>
+                              <p className="text-xs text-gray-500 mt-1">{result.answered} answered</p>
                             </div>
                           )
                         }

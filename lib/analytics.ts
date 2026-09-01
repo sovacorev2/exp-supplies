@@ -2,6 +2,14 @@ import type { FormField, Submission, FieldValueMerge } from '@/app/actions/forms
 
 export type Bucket = { label: string; value: number }
 
+// A count field's total (pegs issued, customers engaged) should read as a
+// whole number the way anyone would actually write it down, not carry a
+// meaningless decimal, while a genuinely fractional quantity still shows
+// its precision instead of being silently rounded away.
+export function formatCount(n: number): string {
+  return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 1 })
+}
+
 export function isPrivateField(label: string): boolean {
   const privatePatterns = /phone|tel|mobile|recruiter|interviewer|respondent.?name|email|ssn|tax|id.?number|credit|password|why.*choose|why.*select/i
   return privatePatterns.test(label)
@@ -49,7 +57,7 @@ export function ratingGradient(steps: number): string[] {
 export type CategoricalResult = { kind: 'categorical'; answered: number; unanswered: number; buckets: Bucket[] }
 export type MultiResult      = { kind: 'multi';        respondents: number; totalSelections: number; buckets: Bucket[] }
 export type BooleanResult    = { kind: 'boolean';      yes: number; no: number; unanswered: number }
-export type NumericResult    = { kind: 'numeric';      answered: number; min: number; max: number; avg: number; median: number; histogram: Bucket[] }
+export type NumericResult    = { kind: 'numeric';      answered: number; min: number; max: number; avg: number; sum: number; median: number; histogram: Bucket[] }
 export type DateResult       = { kind: 'date';         answered: number; unanswered: number; buckets: Bucket[] }
 export type TextResult       = { kind: 'text';         answered: number; total: number; topAnswers: Bucket[]; samples: string[]; allAnswers?: string[] }
 export type MatrixRow        = { row: string; avg: number; distribution: Bucket[] }
@@ -134,10 +142,11 @@ function analyzeBoolean(field: FormField, subs: Submission[], full: boolean = fa
 
 function analyzeNumber(field: FormField, subs: Submission[], full: boolean = false): NumericResult {
   const nums = answersFor(subs, field.label).map(parseFloat).filter(v => !isNaN(v))
-  if (!nums.length) return { kind: 'numeric', answered: 0, min: 0, max: 0, avg: 0, median: 0, histogram: [] }
+  if (!nums.length) return { kind: 'numeric', answered: 0, min: 0, max: 0, avg: 0, sum: 0, median: 0, histogram: [] }
   const sorted = [...nums].sort((a, b) => a - b)
   const min    = sorted[0], max = sorted[sorted.length - 1]
-  const avg    = nums.reduce((s, v) => s + v, 0) / nums.length
+  const sum    = nums.reduce((s, v) => s + v, 0)
+  const avg    = sum / nums.length
   const mid    = Math.floor(sorted.length / 2)
   const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
   let histogram: Bucket[]
@@ -154,7 +163,7 @@ function analyzeNumber(field: FormField, subs: Submission[], full: boolean = fal
       return { label: lo === hi ? `${lo}` : `${lo}–${hi}`, value }
     })
   }
-  return { kind: 'numeric', answered: nums.length, min, max, avg, median, histogram }
+  return { kind: 'numeric', answered: nums.length, min, max, avg, sum, median, histogram }
 }
 
 function analyzeDate(field: FormField, subs: Submission[], full: boolean = false): DateResult {

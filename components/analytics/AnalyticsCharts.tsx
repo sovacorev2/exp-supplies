@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Legend,
 } from 'recharts'
 import type { Bucket, FieldResult, RadarAxis, TextResult } from '@/lib/analytics'
-import { ratingGradient, analyzeField } from '@/lib/analytics'
+import { ratingGradient, analyzeField, formatCount } from '@/lib/analytics'
 import type { FormField, FieldValueMerge, Submission } from '@/app/actions/forms'
 import { mergeFieldValues, unmergeFieldValue } from '@/app/actions/forms'
 
@@ -248,15 +248,34 @@ export function ComparisonPanel({ field, fields, segments, unanswered }: {
             )
           }
 
-          if (results.every(r => r.result.kind === 'numeric' || r.result.kind === 'rating')) {
+          // A count field (pegs issued, customers engaged) measures output —
+          // what a team did in total is the performance number, an average
+          // per submission just muddies it with how many times they happened
+          // to file a report. A rating field is the opposite: its scale is
+          // fixed regardless of response count, so the average score is the
+          // only number that means anything, summing 1-5 ratings is nonsense.
+          if (results.every(r => r.result.kind === 'numeric')) {
             return (
               <div key={f.id} className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label}</p>
+                <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label} <span className="font-normal text-gray-400">(total)</span></p>
                 <div className="grid gap-3" style={{ gridTemplateColumns: gridCols }}>
                   {results.map(({ seg, result }) => {
-                    const value = result.kind === 'numeric' ? result.avg.toFixed(1) : result.kind === 'rating' ? `${result.avg.toFixed(1)} / ${result.max}` : '—'
-                    const answered = result.kind === 'numeric' || result.kind === 'rating' ? result.answered : 0
-                    return <StatTile key={seg.label} label={seg.label} value={value} sub={`${answered} answered`} />
+                    if (result.kind !== 'numeric') return null
+                    return <StatTile key={seg.label} label={seg.label} value={formatCount(result.sum)} sub={`avg ${result.avg.toFixed(1)} · ${result.answered} answered`} />
+                  })}
+                </div>
+              </div>
+            )
+          }
+
+          if (results.every(r => r.result.kind === 'rating')) {
+            return (
+              <div key={f.id} className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200 mb-3">{f.label} <span className="font-normal text-gray-400">(average)</span></p>
+                <div className="grid gap-3" style={{ gridTemplateColumns: gridCols }}>
+                  {results.map(({ seg, result }) => {
+                    if (result.kind !== 'rating') return null
+                    return <StatTile key={seg.label} label={seg.label} value={`${result.avg.toFixed(1)} / ${result.max}`} sub={`${result.answered} answered`} />
                   })}
                 </div>
               </div>
