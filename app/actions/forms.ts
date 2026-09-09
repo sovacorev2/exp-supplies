@@ -201,6 +201,7 @@ export async function addFormCollaborator(
         <p style="color: #666; font-size: 13px;">Sign in (or create an account) using this email address — ${normalized} — to see it. If you don't have an account yet, sign up with this same email first.</p>
       </div>
     `,
+    text: `${currentUser.name || currentUser.email} has given you access to manage "${form.name}" on Exp Forms — responses, analytics, invitees, everything they can do for this form.\n\nSign in (or create an account) using this email address — ${normalized} — to see it: ${origin}/sign-in\n\nIf you don't have an account yet, sign up with this same email first.`,
   }).catch(() => {})
 
   return { ok: true }
@@ -718,6 +719,7 @@ async function sendInviteEmailCore(
         <p style="color: #666; font-size: 13px;">${link}</p>
       </div>
     `,
+    text: `Hi ${invitee.name},\n\nYou've been invited to fill out this form: ${form.name}\n\nYour progress is saved automatically, so you can leave and come back any time using this link:\n${link}`,
   })
 
   if (result.ok) {
