@@ -45,6 +45,7 @@ export default function EditFormPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('General')
+  const [singleResponse, setSingleResponse] = useState(false)
   const [fields, setFields] = useState<FormField[]>([])
 
   const [newLabel, setNewLabel] = useState('')
@@ -103,6 +104,7 @@ export default function EditFormPage() {
         setName(targetForm.name)
         setDescription(targetForm.description || '')
         setCategory(targetForm.category)
+        setSingleResponse(!!targetForm.single_response)
         setFields(targetForm.fields)
       } catch (err) {
         setError('Failed to load form')
@@ -288,6 +290,7 @@ export default function EditFormPage() {
         name,
         description,
         category,
+        single_response: singleResponse,
         fields,
       } as any)
       setSaved(true)
@@ -391,6 +394,18 @@ export default function EditFormPage() {
                   placeholder="Tell suppliers what this form is for…"
                 />
               </div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded accent-brand-500"
+                  checked={singleResponse}
+                  onChange={e => setSingleResponse(e.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">Allow only one response per person</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">Hides &quot;Submit another&quot; and the edit-later link. Responses can&apos;t be changed after submitting.</span>
+                </span>
+              </label>
             </div>
 
             <div className="card">

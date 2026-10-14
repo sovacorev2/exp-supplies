@@ -60,6 +60,9 @@ export interface Form {
   category: string
   fields: FormField[]
   is_active: boolean
+  // One response per person: no "Submit another", no edit-later link, and
+  // a submitted response can't be reopened from its resume link.
+  single_response?: boolean
   slug: string
   user_id: string | null
   created_at: Date
@@ -235,6 +238,7 @@ export async function getForms(): Promise<Form[]> {
           category: forms.category,
           fields: forms.fields,
           is_active: forms.is_active,
+          single_response: forms.single_response,
           slug: forms.slug,
           user_id: forms.user_id,
           created_at: forms.created_at,
@@ -310,6 +314,7 @@ export async function updateForm(id: string, updates: Partial<Form>): Promise<Fo
   if (updates.category !== undefined) updateData.category = updates.category
   if (updates.fields !== undefined) updateData.fields = updates.fields
   if (updates.is_active !== undefined) updateData.is_active = updates.is_active
+  if (updates.single_response !== undefined) updateData.single_response = updates.single_response
 
   const rows = await db
     .update(forms)
@@ -394,7 +399,7 @@ export async function createSubmission(
   resumeToken?: string,
   inviteeId?: string,
   honeypot?: string
-): Promise<{ resumeToken: string } | { error: 'locked' | 'rate_limited' }> {
+): Promise<{ resumeToken: string } | { error: 'locked' | 'rate_limited' | 'already_submitted' }> {
   // A filled honeypot means a bot — pretend success without touching the
   // database at all (no query, no rate-limit budget consumed).
   if (honeypot) {
@@ -402,6 +407,9 @@ export async function createSubmission(
   }
 
   if (resumeToken) {
+    // Single-response forms only let a resume link finish a draft — once
+    // submitted, the response can't be edited from the link.
+    const singleResponse = await isSingleResponseForm(formId)
     const rows = await db
       .update(submissions)
       .set({
@@ -413,7 +421,9 @@ export async function createSubmission(
       .where(and(
         eq(submissions.resume_token, resumeToken),
         eq(submissions.form_id, formId),
-        or(eq(submissions.status, 'draft'), eq(submissions.status, 'pending'))
+        singleResponse
+          ? eq(submissions.status, 'draft')
+          : or(eq(submissions.status, 'draft'), eq(submissions.status, 'pending'))
       ))
       .returning({ resume_token: submissions.resume_token })
     if (rows.length) return { resumeToken: rows[0].resume_token as string }
@@ -427,6 +437,9 @@ export async function createSubmission(
       .limit(1)
     if (existing.length && (existing[0].status === 'approved' || existing[0].status === 'rejected')) {
       return { error: 'locked' }
+    }
+    if (singleResponse && existing.length && existing[0].status === 'pending') {
+      return { error: 'already_submitted' }
     }
     // otherwise: stale/foreign token — fall through, mint a fresh submission
   }
@@ -502,10 +515,19 @@ export async function saveDraft(
   return { resumeToken: token, expiresAt }
 }
 
+async function isSingleResponseForm(formId: string): Promise<boolean> {
+  const rows = await db
+    .select({ single_response: forms.single_response })
+    .from(forms)
+    .where(eq(forms.id, formId))
+    .limit(1)
+  return !!rows[0]?.single_response
+}
+
 export async function getDraft(
   formId: string,
   resumeToken: string
-): Promise<Draft | { error: 'invalid' | 'expired' | 'locked' }> {
+): Promise<Draft | { error: 'invalid' | 'expired' | 'locked' | 'already_submitted' }> {
   const rows = await db
     .select()
     .from(submissions)
@@ -521,6 +543,7 @@ export async function getDraft(
   if (row.status === 'approved' || row.status === 'rejected') return { error: 'locked' }
   if (row.status === 'draft' && row.expires_at && new Date(row.expires_at) < new Date()) return { error: 'expired' }
   if (row.status !== 'draft' && row.status !== 'pending') return { error: 'invalid' } // defensive
+  if (row.status === 'pending' && await isSingleResponseForm(formId)) return { error: 'already_submitted' }
 
   return {
     data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data || {},

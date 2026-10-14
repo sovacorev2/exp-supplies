@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
 import { getFormBySlug } from '@/app/actions/forms'
 import { notFound } from 'next/navigation'
 import SupplierForm from './SupplierForm'
+
+// No web-app manifest or iOS web-app tags on public forms, so respondents
+// aren't prompted to "Add to Home Screen" the admin app.
+export const metadata: Metadata = {
+  manifest: null,
+  appleWebApp: null,
+}
 
 export default async function PublicFormPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

@@ -8,6 +8,19 @@ import { AutocompleteField } from '@/components/AutocompleteField'
 
 const AUTOSAVE_DELAY_MS = 1500
 
+// Single-response forms remember a finished submission on this device so a
+// reload (or reopening the shared link) shows "already submitted" instead
+// of a blank form. The server separately refuses edits via the resume link.
+const submittedKey = (formId: string) => `exp-forms:submitted:${formId}`
+
+function markSubmitted(formId: string) {
+  try { localStorage.setItem(submittedKey(formId), '1') } catch {}
+}
+
+function hasSubmitted(formId: string) {
+  try { return localStorage.getItem(submittedKey(formId)) === '1' } catch { return false }
+}
+
 export default function SupplierForm({ form }: { form: Form }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [uploadStatus, setUploadStatus] = useState<Record<string, 'uploading' | 'done' | 'error'>>({})
@@ -16,7 +29,7 @@ export default function SupplierForm({ form }: { form: Form }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [resumeToken, setResumeToken] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [recordState, setRecordState] = useState<'new' | 'draft' | 'editing' | 'locked'>('new')
+  const [recordState, setRecordState] = useState<'new' | 'draft' | 'editing' | 'locked' | 'already_submitted'>('new')
   const [linkCopied, setLinkCopied] = useState(false)
   const [honeypot, setHoneypot] = useState('')
 
@@ -36,11 +49,20 @@ export default function SupplierForm({ form }: { form: Form }) {
     const resumeTokenParam = params.get('resume')
     const inviteToken = params.get('invite')
 
+    if (form.single_response && !resumeTokenParam && hasSubmitted(form.id)) {
+      setRecordState('already_submitted')
+      return
+    }
+
     const resumePromise = resumeTokenParam
       ? fetch(`/api/submissions/draft?formId=${form.id}&token=${resumeTokenParam}`)
           .then(async res => {
             if (res.status === 403) {
               setRecordState('locked')
+              return
+            }
+            if (res.status === 409) {
+              setRecordState('already_submitted')
               return
             }
             if (!res.ok) return
@@ -272,6 +294,9 @@ export default function SupplierForm({ form }: { form: Form }) {
       if ('error' in result) {
         if (result.error === 'rate_limited') {
           setErrors({ submit: 'Too many submissions from this network — please wait a few minutes and try again.' })
+        } else if (result.error === 'already_submitted') {
+          markSubmitted(form.id)
+          setRecordState('already_submitted')
         } else {
           setRecordState('locked')
           setErrors({ submit: 'This response has already been reviewed and can no longer be edited.' })
@@ -280,6 +305,7 @@ export default function SupplierForm({ form }: { form: Form }) {
       }
       resumeTokenRef.current = result.resumeToken
       setResumeToken(result.resumeToken)
+      if (form.single_response) markSubmitted(form.id)
       setSubmitted(true)
       window.history.replaceState(null, '', window.location.pathname)
     } catch (error) {
@@ -304,8 +330,22 @@ export default function SupplierForm({ form }: { form: Form }) {
     )
   }
 
+  if (recordState === 'already_submitted' && !submitted) {
+    return (
+      <div className="text-center py-12 md:py-16 px-4">
+        <div className="inline-flex items-center justify-center w-16 md:w-20 h-16 md:h-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-4 md:mb-6">
+          <CheckCircle size={40} className="md:w-14 md:h-14 text-green-600 dark:text-green-400" />
+        </div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">You&apos;ve already responded</h2>
+        <p className="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed max-w-md mx-auto">
+          Thank you — your response to {form.name} has been received. This form only accepts one response.
+        </p>
+      </div>
+    )
+  }
+
   if (submitted) {
-    const editLink = resumeToken && typeof window !== 'undefined'
+    const editLink = resumeToken && !form.single_response && typeof window !== 'undefined'
       ? `${window.location.origin}${window.location.pathname}?resume=${resumeToken}`
       : ''
 
@@ -346,7 +386,7 @@ export default function SupplierForm({ form }: { form: Form }) {
           </div>
         )}
 
-        <button
+        {!form.single_response && <button
           onClick={() => {
             setSubmitted(false)
             setValues({})
@@ -360,7 +400,7 @@ export default function SupplierForm({ form }: { form: Form }) {
           className="inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white font-semibold rounded-lg hover:from-brand-700 hover:to-brand-800 transition-all shadow-md hover:shadow-lg text-sm md:text-base"
         >
           Submit Another
-        </button>
+        </button>}
       </div>
     )
   }

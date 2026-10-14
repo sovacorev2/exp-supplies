@@ -5,6 +5,7 @@ import { ThemeProvider } from './providers'
 export const metadata: Metadata = {
   title: 'Exp Forms',
   description: 'Data collection forms platform',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

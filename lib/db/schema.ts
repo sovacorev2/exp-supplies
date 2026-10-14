@@ -64,6 +64,7 @@ export const forms = pgTable('forms', {
   category: text('category').notNull(),
   fields: jsonb('fields').notNull().default([]),
   is_active: boolean('is_active').notNull().default(true),
+  single_response: boolean('single_response').notNull().default(false),
   slug: text('slug').notNull().unique(),
   user_id: text('user_id').references(() => user.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at').notNull().defaultNow(),
