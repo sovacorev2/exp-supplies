@@ -267,7 +267,7 @@ export default function SupplierForm({ form }: { form: Form }) {
     } catch (error) {
       console.error(`[v0] Failed to upload file for ${field.label}:`, error)
       setUploadStatus(prev => ({ ...prev, [field.label]: 'error' }))
-      setErrors(prev => ({ ...prev, [field.label]: 'Upload failed — please try again' }))
+      setErrors(prev => ({ ...prev, [field.label]: 'Upload failed. Please try again.' }))
     }
   }
 
@@ -293,7 +293,7 @@ export default function SupplierForm({ form }: { form: Form }) {
       )
       if ('error' in result) {
         if (result.error === 'rate_limited') {
-          setErrors({ submit: 'Too many submissions from this network — please wait a few minutes and try again.' })
+          setErrors({ submit: 'Too many submissions from this network. Please wait a few minutes and try again.' })
         } else if (result.error === 'already_submitted') {
           markSubmitted(form.id)
           setRecordState('already_submitted')
@@ -338,7 +338,7 @@ export default function SupplierForm({ form }: { form: Form }) {
         </div>
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">You&apos;ve already responded</h2>
         <p className="text-gray-600 dark:text-gray-400 text-base md:text-lg leading-relaxed max-w-md mx-auto">
-          Thank you — your response to {form.name} has been received. This form only accepts one response.
+          Thank you, your response to {form.name} has been received. This form only accepts one response.
         </p>
       </div>
     )
@@ -446,7 +446,7 @@ export default function SupplierForm({ form }: { form: Form }) {
           <span>
             Your progress is saved. Bookmark this page to finish later.
             {saveState === 'saving' && <span className="opacity-70"> Saving…</span>}
-            {saveState === 'error' && <span className="text-red-600 dark:text-red-400"> Couldn&apos;t save — check your connection.</span>}
+            {saveState === 'error' && <span className="text-red-600 dark:text-red-400"> Couldn&apos;t save. Check your connection.</span>}
           </span>
         </div>
       )}

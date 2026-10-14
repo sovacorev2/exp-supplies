@@ -407,7 +407,7 @@ export async function createSubmission(
   }
 
   if (resumeToken) {
-    // Single-response forms only let a resume link finish a draft — once
+    // Single-response forms only let a resume link finish a draft. Once
     // submitted, the response can't be edited from the link.
     const singleResponse = await isSingleResponseForm(formId)
     const rows = await db

@@ -1,5 +1,5 @@
 -- ============================================================
--- SupplyPortal — per-form "one response per person" setting
+-- SupplyPortal: per-form "one response per person" setting
 -- Paste this into Neon Console → SQL Editor → Run
 -- ============================================================
 

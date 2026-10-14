@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 // Served as a plain route (not app/manifest.ts) so the <link rel="manifest">
-// can be left off public form pages — respondents shouldn't be offered an
+// can be left off public form pages: respondents shouldn't be offered an
 // "install app" prompt for the admin app. Linked from the root layout and
 // nulled out in app/f/[slug]/page.tsx.
 const manifest: MetadataRoute.Manifest = {
