@@ -7,6 +7,19 @@ import { Search, Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { exportCSV, formatAnswerPreview } from '@/lib/analytics'
 
+// Answers in the order the form asks them. Postgres jsonb doesn't keep key
+// order (it sorts by key length), so iterating sub.data directly scrambles
+// them. Answers to fields no longer on the form go last, in stored order.
+function orderedAnswers(data: Record<string, string>, form?: Form): [string, string][] {
+  const entries = Object.entries(data)
+  if (!form?.fields?.length) return entries
+  const position = new Map(form.fields.map((f, i) => [f.label, i]))
+  return entries
+    .map((entry, i) => ({ entry, rank: position.get(entry[0]) ?? form.fields.length + i }))
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ entry }) => entry)
+}
+
 export default function SuppliersClient({
   submissions,
   forms,
@@ -416,7 +429,7 @@ export default function SuppliersClient({
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
               {filtered.map((sub: Submission) => {
                 const subForm = forms.find(f => f.id === sub.form_id)
-                const previewText = Object.entries(sub.data)
+                const previewText = orderedAnswers(sub.data, subForm)
                   .filter(([, v]) => v !== '' && v != null)
                   .slice(0, 2)
                   .map(([key, value]) => formatAnswerPreview(value, subForm?.fields.find(f => f.label === key)))
@@ -496,8 +509,8 @@ export default function SuppliersClient({
             </div>
 
             <div className="p-4 md:p-6 flex-1 space-y-4 overflow-y-auto">
-              {Object.entries(selected.data).map(([key, value]: [string, string]) => {
-                const formDef = forms.find(f => f.id === selected.form_id)
+              {orderedAnswers(selected.data, selectedForm).map(([key, value]: [string, string]) => {
+                const formDef = selectedForm
                 const fieldDef = formDef?.fields.find(fld => fld.label === key)
 
                 const isImageField = key.toLowerCase().includes('image') || key.toLowerCase().includes('photo') || key.toLowerCase().includes('product') || key.toLowerCase().includes('supply')
