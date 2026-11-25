@@ -7,10 +7,23 @@ import { Pool } from 'pg'
 // TLS is kept on but the chain is not verified (same as the other EXP apps).
 let _pool: Pool | null = null
 
+// sslmode in the URL would override the ssl option below, so drop it.
+function withoutSslParams(raw?: string): string | undefined {
+  if (!raw) return raw
+  try {
+    const url = new URL(raw)
+    url.searchParams.delete('sslmode')
+    url.searchParams.delete('channel_binding')
+    return url.toString()
+  } catch {
+    return raw
+  }
+}
+
 export function getPool(): Pool {
   if (!_pool) {
     _pool = new Pool({
-      connectionString: process.env.DATABASE_URL?.replace(/[?&]sslmode=[^&]*/g, ''),
+      connectionString: withoutSslParams(process.env.DATABASE_URL),
       ssl: { rejectUnauthorized: false },
       max: 5,
       idleTimeoutMillis: 10_000,
