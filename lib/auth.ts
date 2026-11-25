@@ -1,10 +1,10 @@
 import { betterAuth, APIError } from 'better-auth'
-import { Pool } from 'pg'
 import { eq } from 'drizzle-orm'
 import { db } from './db'
 import { formCollaborators } from './db/schema'
+import { getPool } from './db/pool'
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const pool = getPool()
 
 // Sign-up used to be open to anyone on the internet, which let a stranger
 // register, publish a public /f/[slug] page with arbitrary field labels,

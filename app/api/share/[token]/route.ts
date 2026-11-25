@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { neon } from '@neondatabase/serverless'
+import { getPool } from '@/lib/db/pool'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,12 +9,10 @@ export async function GET(
 ) {
   try {
     const { token } = await params
-    const sql = neon(process.env.DATABASE_URL!)
+    const pool = getPool()
 
     // Find valid share token
-    const tokenRecords = await sql`
-      SELECT * FROM share_tokens WHERE token = ${token} LIMIT 1
-    `
+    const tokenRecords = (await pool.query('SELECT * FROM share_tokens WHERE token = $1 LIMIT 1', [token])).rows
     if (!tokenRecords.length) {
       return NextResponse.json({ error: 'Invalid share link' }, { status: 404 })
     }
@@ -27,17 +25,13 @@ export async function GET(
     }
 
     // Fetch form
-    const forms = await sql`
-      SELECT * FROM forms WHERE id = ${record.form_id} LIMIT 1
-    `
+    const forms = (await pool.query('SELECT * FROM forms WHERE id = $1 LIMIT 1', [record.form_id])).rows
     if (!forms.length) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 })
     }
 
     // Fetch submissions
-    const formSubmissions = await sql`
-      SELECT * FROM submissions WHERE form_id = ${record.form_id} ORDER BY created_at DESC
-    `
+    const formSubmissions = (await pool.query('SELECT * FROM submissions WHERE form_id = $1 ORDER BY created_at DESC', [record.form_id])).rows
 
     return NextResponse.json({
       form: forms[0],

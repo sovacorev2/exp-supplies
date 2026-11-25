@@ -466,6 +466,10 @@ export default function SupplierForm({ form }: { form: Form }) {
           return (
             <div key={field.id} className="mt-6 mb-4 pt-4 border-t-2 border-brand-200 dark:border-brand-800">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">{field.label}</h3>
+              {/* A section's intro text lives in its placeholder (headers have no input to use it). */}
+              {field.placeholder && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{field.placeholder}</p>
+              )}
             </div>
           )
         }
